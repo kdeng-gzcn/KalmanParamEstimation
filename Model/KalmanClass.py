@@ -9,7 +9,7 @@ class LinearGaussianDataGenerator:
     def __init__(self, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None):
 
         if A is None:
-            A = np.array([[1.]])
+            A = np.array([[0.9]])
         if Sigma_q is None:
             Sigma_q = np.diag([0.01])
         if H is None:
@@ -223,7 +223,7 @@ class KalmanClass(LinearGaussianDataGenerator):
         except Exception as e:
             print(e, "\n", "If Some Values Missing, Try to Call Filter() First.")
 
-    def loglikelihood(self, theta, Y=None):
+    def loglikelihood(self, theta=None, Y=None):
         """
         When Plot or Numerical Method
         """
@@ -248,7 +248,7 @@ class KalmanClass(LinearGaussianDataGenerator):
         # else use build-in A for ell
         return self.kf.loglikelihood(Y)
     
-    def data_for_plot_loglikelihood(self, xlim=(0, 2), num=100, Y=None):
+    def data_for_plot_loglikelihood(self, theta_name=None, xlim=(0, 2), num=100, Y=None):
         """
         This works only with A is dim1
         args:
@@ -261,6 +261,8 @@ class KalmanClass(LinearGaussianDataGenerator):
         """
         if Y is None:
             Y = self.Y
+
+        self.theta = theta_name
 
         Thetas_for_plot = [np.array([[Theta]]) for Theta in np.linspace(xlim[0], xlim[1], num)]
 
@@ -617,17 +619,17 @@ class GradientParametersEstimationAll(KalmanClass):
 
         # init value
         if self.theta == "A":
-            Theta = np.random.randn(*self.A.shape)
+            Theta = np.random.uniform(0, 1, size=self.A.shape)  # Generate random values for A in the range [0, 0.9]
         elif self.theta == "H":
-            Theta = np.random.randn(*self.H.shape)
+            Theta = np.random.uniform(0, 1, size=self.H.shape)    # Generate random values for H in the range [0, 1]
         elif self.theta == "mu":
             Theta = np.random.randn(*self.mu_0.shape)
         elif self.theta == "P":
-            Theta = np.random.randn(*self.P_0.shape)
+            Theta = np.abs(np.random.randn(*self.P_0.shape))
         elif self.theta == "Q":
-            Theta = np.random.randn(*self.Sigma_q.shape)
+            Theta = np.abs(np.random.randn(*self.Sigma_q.shape))
         elif self.theta == "R":
-            Theta = np.random.randn(*self.Sigma_r.shape)
+            Theta = np.abs(np.random.randn(*self.Sigma_r.shape))
         
         print('Theta0:', Theta)
 
