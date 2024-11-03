@@ -5,7 +5,7 @@ import os
 import sys
 sys.path.append("./")
 
-from Model.KalmanClass import MAPParameterEstimationA, EMParameterEstimationA
+from Model.KalmanClass import GradientParameterEstimationA, EMParameterEstimationA
 
 class FigureTemplate:
     def __init__(self, model, save_path="./Result/", save=False, title=None, xlabel=None, ylabel=None, filename=None):
@@ -168,7 +168,7 @@ class PlotFilterSmootherMeasurement(FigureTemplate):
 class PlotLoglikelihood(FigureTemplate):
     def __init__(self, model, save_path="./Result/", save=False, title="Loglikelihood", xlabel="Theta", ylabel=r"$\ell(\theta \mid Y)$", filename="Loglikelihood.png"):
 
-        assert isinstance(model, MAPParameterEstimationA), "Not MAP Parameter Estimation"
+        assert isinstance(model, GradientParameterEstimationA), "Not MAP Parameter Estimation"
 
         super().__init__(model, save_path, save, title, xlabel, ylabel, filename)
 
@@ -192,7 +192,7 @@ class PlotLoglikelihood(FigureTemplate):
 class PlotMAPWithLoglikelihood(FigureTemplate):
     def __init__(self, model, save_path="./Result/", save=False, title="MAP Param Estimation", xlabel="Theta", ylabel=r"$\ell(\theta \mid Y)$", filename="MAP Iteratin and Loglikelihood.png"):
 
-        assert isinstance(model, MAPParameterEstimationA), "Not MAP Parameter Estimation"
+        assert isinstance(model, GradientParameterEstimationA), "Not MAP Parameter Estimation"
 
         super().__init__(model, save_path, save, title, xlabel, ylabel, filename)
 
@@ -266,7 +266,7 @@ if __name__ == "__main__":
 
     ### Task2
 
-    model = MAPParameterEstimationA()
+    model = GradientParameterEstimationA()
 
     PlotMAPWithLoglikelihood(model=model)
     # PlotMAPWithLoglikelihood(model=model, save=True)

@@ -31,8 +31,8 @@ class LinearGaussianDataGenerator:
 
         # Default Data
         result = self.generate_measurement(total_timesteps=50)
-        self.X = result['X']
-        self.Y = result['Y']
+        self.X = result['X'] # len T+1
+        self.Y = result['Y'] # len T
 
     def dynamic(self, x_k):
         """
@@ -94,19 +94,6 @@ class KalmanClass(LinearGaussianDataGenerator):
         we already have build-in X and Y
         """
         super().__init__(A, Sigma_q, H, Sigma_r, mu_0, P_0) # use default value
-
-        if A is not None:
-            self.A = A
-        if Sigma_q is not None:
-            self.Sigma_q = Sigma_q
-        if H is not None:
-            self.H = H
-        if Sigma_r is not None:
-            self.Sigma_r = Sigma_r
-        if mu_0 is not None:
-            self.mu_0 = mu_0
-        if P_0 is not None:
-            self.P_0 = P_0
 
         # KF
         self.kf = KalmanFilter(
@@ -245,8 +232,6 @@ class KalmanClass(LinearGaussianDataGenerator):
         if Y is None:
             Y = self.Y
 
-        
-
         if theta is not None and self.theta == "A":
             self.kf.transition_matrices = theta
         if theta is not None and self.theta == "H":
@@ -289,7 +274,7 @@ class KalmanClass(LinearGaussianDataGenerator):
 
         return Thetas_for_plot, loglikelihoods
 
-class MAPParameterEstimationA(KalmanClass):
+class GradientParameterEstimationA(KalmanClass):
     """
     High-Level Usage: input Y and output a fitted model. Remember we have build-in data for evaluation.
 
@@ -298,10 +283,6 @@ class MAPParameterEstimationA(KalmanClass):
 
     def __init__(self, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None) -> None:
         super().__init__(A, Sigma_q, H, Sigma_r, mu_0, P_0) # use default value
-
-    def __call__(self, *args, **kwds):
-        # return super().__call__(*args, **kwds)
-        pass
     
     def gradient_ell_k(self, y, A, mu, P, H, Q, R):
         """
@@ -428,11 +409,7 @@ class EMParameterEstimationA(KalmanClass):
     """
 
     def __init__(self, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None) -> None:
-        super().__init__(A, Sigma_q, H, Sigma_r, mu_0, P_0) # use default value
-
-    def __call__(self, *args, **kwds):
-        # return super().__call__(*args, **kwds)
-        pass
+        super().__init__(A, Sigma_q, H, Sigma_r, mu_0, P_0)
 
     def quantities_from_Q(self, A, Y=None):
         if Y is None:
@@ -513,11 +490,11 @@ class EMParameterEstimationA(KalmanClass):
         return A, As, metric
 
 class GradientParametersEstimationAll(KalmanClass):
-    def __init__(self, vars: str, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None) -> None:
+    def __init__(self, var: str, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None) -> None:
         super().__init__(A, Sigma_q, H, Sigma_r, mu_0, P_0) # use default value
 
         # extract theta from vars
-        self.theta = vars
+        self.theta = var
 
     def gradient_ell_k(self, y, A, H, Q, R, mu, P):
         """
@@ -672,14 +649,10 @@ class EMParameterEstimationAll(KalmanClass):
     To compute the conclusions from EM Algorithm, we need to use quantities from Filter and Smoother part.
     """
 
-    def __init__(self, vars: str, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None) -> None:
+    def __init__(self, var: str, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None) -> None:
         super().__init__(A, Sigma_q, H, Sigma_r, mu_0, P_0) # use default value
 
-        self.theta = vars
-
-    def __call__(self, *args, **kwds):
-        # return super().__call__(*args, **kwds)
-        pass
+        self.theta = var
 
     def quantities_from_Q(self, Theta, Y=None):
 
