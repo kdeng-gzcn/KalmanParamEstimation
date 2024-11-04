@@ -27,7 +27,7 @@ fig.suptitle(rf"Gradient Algorithm for Missing Variable, $\alpha$={alpha}, num_i
 ax1 = fig.add_subplot(1, 2, 1)  # [left, bottom, width, height] in proportion
 
 for H in [1.0, 0.6, 0.3]:
-    model = KalmanClass.GradientParametersEstimationAll(var="H", H=np.array([[H]]))
+    model = KalmanClass.GradientParameterEstimationAll(var="H", H=np.array([[H]]))
     H_for_plots, loglikelihoods = model.data_for_plot_loglikelihood(theta_name="H", xlim=(-0.5, 1.5))
 
     H_fianl, Hs = model.parameter_estimation(alpha=alpha, num_iteration=num_iteration, )
@@ -60,7 +60,7 @@ ax1.legend()
 ax2 = fig.add_subplot(1, 2, 2)  # Position of the second ax in proportion
 
 for A in [0.9, 0.6, 0.3]:
-    model = KalmanClass.GradientParametersEstimationAll(var="A", A=np.array([[A]]))
+    model = KalmanClass.GradientParameterEstimationAll(var="A", A=np.array([[A]]))
     A_for_plots, loglikelihoods = model.data_for_plot_loglikelihood(theta_name="A", xlim=(-0.5, 1.5))
 
     A_fianl, As = model.parameter_estimation(alpha=alpha, num_iteration=num_iteration)

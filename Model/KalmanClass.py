@@ -1,5 +1,4 @@
 import numpy as np
-from matplotlib import pyplot as plt
 import torch
 
 from pykalman import KalmanFilter
@@ -491,7 +490,7 @@ class EMParameterEstimationA(KalmanClass):
 
         return A, As, metric
 
-class GradientParametersEstimationAll(KalmanClass):
+class GradientParameterEstimationAll(KalmanClass):
     def __init__(self, var: str, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None) -> None:
         super().__init__(A, Sigma_q, H, Sigma_r, mu_0, P_0) # use default value
 
@@ -617,32 +616,53 @@ class GradientParametersEstimationAll(KalmanClass):
         if Y is None:
             Y = self.Y
 
-        # init value
         if self.theta == "A":
-            Theta = np.random.uniform(0, 1, size=self.A.shape)  # Generate random values for A in the range [0, 0.9]
+            Theta = np.random.uniform(low=0., high=1., size=self.A.shape)
+            m = np.linalg.norm(Theta - self.A, 'fro')
         elif self.theta == "H":
-            Theta = np.random.uniform(0, 1, size=self.H.shape)    # Generate random values for H in the range [0, 1]
+            Theta = np.random.uniform(low=0., high=1., size=self.H.shape)
+            m = np.linalg.norm(Theta - self.H, 'fro')
         elif self.theta == "mu":
-            Theta = np.random.randn(*self.mu_0.shape)
+            Theta = np.random.normal(loc=0., scale=1., size=self.mu_0.shape)
+            m = np.linalg.norm(Theta - self.mu_0, 2)
         elif self.theta == "P":
-            Theta = np.abs(np.random.randn(*self.P_0.shape))
+            Theta = np.random.uniform(low=0., high=0.02, size=self.P_0.shape)
+            m = np.linalg.norm(Theta - self.P_0, 'fro')
         elif self.theta == "Q":
-            Theta = np.abs(np.random.randn(*self.Sigma_q.shape))
+            Theta = np.random.uniform(low=0., high=0.02, size=self.Sigma_q.shape)
+            m = np.linalg.norm(Theta - self.Sigma_q, 'fro')
         elif self.theta == "R":
-            Theta = np.abs(np.random.randn(*self.Sigma_r.shape))
-        
+            Theta = np.random.uniform(low=0., high=0.02, size=self.Sigma_r.shape)
+            m = np.linalg.norm(Theta - self.Sigma_r, 'fro')
+
         print('Theta0:', Theta)
+        print("metric0:", m)
 
         Thetas = [Theta]
+        metric = [m]
 
         for _ in range(num_iteration):
                 
             print("Gradient of ell:", self.gradient_ell(Theta, Y))
             Theta = Theta + alpha * self.gradient_ell(Theta, Y)
 
-            Thetas.append(Theta)
+            if self.theta == "A":
+                m = np.linalg.norm(Theta-self.A, 'fro')
+            elif self.theta == "H": 
+                m = np.linalg.norm(Theta-self.H, 'fro')
+            elif self.theta == "mu":
+                m = np.linalg.norm(Theta-self.mu_0, 2)
+            elif self.theta == "P":
+                m = np.linalg.norm(Theta-self.P_0, 'fro')
+            elif self.theta == "Q":
+                m = np.linalg.norm(Theta-self.Sigma_q, 'fro')
+            elif self.theta == "R":
+                m = np.linalg.norm(Theta-self.Sigma_r, 'fro')
 
-        return Theta, Thetas
+            Thetas.append(Theta)
+            metric.append(m)
+
+        return Theta, Thetas, metric
     
 class EMParameterEstimationAll(KalmanClass):
     """
@@ -727,22 +747,29 @@ class EMParameterEstimationAll(KalmanClass):
             Y = self.Y
 
         if self.theta == "A":
-            Theta = np.random.normal(loc=1., scale=1., size=self.A.shape)
+            Theta = np.random.uniform(low=0., high=1., size=self.A.shape)
+            m = np.linalg.norm(Theta - self.A, 'fro')
         elif self.theta == "H":
-            Theta = np.random.normal(loc=1., scale=1., size=self.H.shape)
+            Theta = np.random.uniform(low=0., high=1., size=self.H.shape)
+            m = np.linalg.norm(Theta - self.H, 'fro')
         elif self.theta == "mu":
             Theta = np.random.normal(loc=0., scale=1., size=self.mu_0.shape)
+            m = np.linalg.norm(Theta - self.mu_0, 2)
         elif self.theta == "P":
-            Theta = np.random.normal(loc=0.01, scale=0.01, size=self.P_0.shape)
+            Theta = np.random.uniform(low=0., high=0.02, size=self.P_0.shape)
+            m = np.linalg.norm(Theta - self.P_0, 'fro')
         elif self.theta == "Q":
-            Theta = np.random.normal(loc=0.01, scale=0.01, size=self.Sigma_q.shape)
+            Theta = np.random.uniform(low=0., high=0.02, size=self.Sigma_q.shape)
+            m = np.linalg.norm(Theta - self.Sigma_q, 'fro')
         elif self.theta == "R":
-            Theta = np.random.normal(loc=0.01, scale=0.01, size=self.Sigma_r.shape)
-        
+            Theta = np.random.uniform(low=0., high=0.02, size=self.Sigma_r.shape)
+            m = np.linalg.norm(Theta - self.Sigma_r, 'fro')
+
         print('Theta0:', Theta)
+        print("metric0:", m)
 
         Thetas = [Theta]
-        metric = []
+        metric = [m]
 
         for _ in range(num_iteration):
 
