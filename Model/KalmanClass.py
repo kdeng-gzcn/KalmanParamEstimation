@@ -261,6 +261,7 @@ class KalmanClass(LinearGaussianDataGenerator):
         if Y is None:
             Y = self.Y
 
+        # if you want the data for plotting ell(theta|Y, theta=some value), you should choose a theta
         self.theta = theta_name
 
         Thetas_for_plot = [np.array([[Theta]]) for Theta in np.linspace(xlim[0], xlim[1], num)]
