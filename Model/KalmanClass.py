@@ -750,6 +750,7 @@ class EMParameterEstimationAll(KalmanClass):
         if self.theta == "A":
             Theta = np.random.uniform(low=0., high=1., size=self.A.shape)
             m = np.linalg.norm(Theta - self.A, 'fro')
+            loglike = self.loglikelihood(theta=Theta, Y=Y)
         elif self.theta == "H":
             Theta = np.random.uniform(low=0., high=1., size=self.H.shape)
             m = np.linalg.norm(Theta - self.H, 'fro')
@@ -762,6 +763,7 @@ class EMParameterEstimationAll(KalmanClass):
         elif self.theta == "Q":
             Theta = np.random.uniform(low=0., high=0.02, size=self.Sigma_q.shape)
             m = np.linalg.norm(Theta - self.Sigma_q, 'fro')
+            loglike = self.loglikelihood(theta=Theta, Y=Y)
         elif self.theta == "R":
             Theta = np.random.uniform(low=0., high=0.02, size=self.Sigma_r.shape)
             m = np.linalg.norm(Theta - self.Sigma_r, 'fro')
@@ -771,6 +773,7 @@ class EMParameterEstimationAll(KalmanClass):
 
         Thetas = [Theta]
         metric = [m]
+        neg_loglikelihood_list = [-loglike]
 
         for _ in range(num_iteration):
 
@@ -780,6 +783,7 @@ class EMParameterEstimationAll(KalmanClass):
                 # update A = C Phi-1
                 Theta = result["C"] @ np.linalg.inv(result["Phi"])
                 m = np.linalg.norm(Theta-self.A, 'fro')
+                loglike = self.loglikelihood(theta=Theta, Y=Y)
             elif self.theta == "H":
                 # H = B Simga-1
                 Theta = result["B"] @ np.linalg.inv(result["Sigma"])
@@ -803,8 +807,9 @@ class EMParameterEstimationAll(KalmanClass):
 
             Thetas.append(Theta)
             metric.append(m)
+            neg_loglikelihood_list.append(-loglike)
 
-        return Theta, Thetas, metric
+        return Theta, Thetas, metric, neg_loglikelihood_list
 
 if __name__ == "__main__":
     # # use build-in data
