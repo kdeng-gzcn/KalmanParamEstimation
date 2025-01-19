@@ -1,4 +1,9 @@
-# Graph EM main
+"""
+
+GraphEM for A, just for testing if it can run
+
+"""
+# Initial Graph EM main
 # we import class for conductin experiments
 # and this main.py is for store and analyze the results
 

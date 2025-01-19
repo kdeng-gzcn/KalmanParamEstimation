@@ -21,12 +21,12 @@ switch reg1
         Y = D10;%initialization
         %disp(Maj_D1)
         for i = 1:ItDR
-            D1 = prox_L1(1,gamma1,Y);
-            V  = prox_ML_D1(C,Phi,sigma_Q,1,2*D1-Y,K);
+            D1 = prox_L1(1,gamma1,Y); % prox l1 at A
+            V  = prox_ML_D1(C,Phi,sigma_Q,1,2*D1-Y,K); % prox f1 at 2A - Y (f1 == q)
             Y  = Y + V - D1;
             
             obj(i) = ComputeMaj_D1(sigma_Q,D1,Sigma,Phi,C,K) ...
-                + gamma1 * sum(abs(D1(:))); 
+                + gamma1 * sum(abs(D1(:))); % q + L0 = Q
             if(i>1)
                 if(abs(obj(i)-obj(i-1))<=precision && obj(i) < Maj_D1)
                     %disp(['DR stops at i = ',num2str(i)]);

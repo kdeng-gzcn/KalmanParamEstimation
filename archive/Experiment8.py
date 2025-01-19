@@ -1,22 +1,20 @@
 """
-
-GraphEM for A for 3 different prior, EM for A, for comparasion
-
+GraphEM for Q, but fails by ruining the symmetric property for Q
 """
-# # Compare Graph EM with loglikelihood and EM, i.e. without L1 norm penalty
-# This is for A
+# # Graph EM main with loglikelihood and EM without L1 norm penalty
+# Estimate Q but with numerical problem
+# The problem is 
 # and this main.py is for store and analyze the results
 
 # 0. import pkg
 import numpy as np
-np.random.seed(0) # set seed 0
 from matplotlib import pyplot as plt
-from Model.GraphEM import GraphEMforA
+from Model.GraphEM import GraphEMforQ
 from Model.KalmanClass import EMParameterEstimationAll
 
 # 1. load model
 # 1.1 setting model params and hyper params
-dim_x = 16
+dim_x = 5
 A = np.eye(dim_x) * 0.9  # Initial A matrix, scaled identity matrix
 Q = np.eye(dim_x) * 0.01  # Small noise in Sigma_q
 H = np.eye(dim_x)  # H matrix as identity
@@ -24,47 +22,44 @@ R = np.eye(dim_x) * 0.01  # Small noise in Sigma_r
 m0 = np.zeros(dim_x)  # Zero vector for mu_0
 P0 = np.eye(dim_x) * 0.01  # Small values in P_0
 # 1.2 load model
-model_MLE = EMParameterEstimationAll(var="A", A=A, Sigma_q=Q, H=H, Sigma_r=R, mu_0=m0, P_0=P0)
-model = GraphEMforA(A=A, Sigma_q=Q, H=H, Sigma_r=R, mu_0=m0, P_0=P0, reg_name="Laplace")
+model_MLE = EMParameterEstimationAll(var="Q", A=A, Sigma_q=Q, H=H, Sigma_r=R, mu_0=m0, P_0=P0)
+model = GraphEMforQ(A=A, Sigma_q=Q, H=H, Sigma_r=R, mu_0=m0, P_0=P0)
 model.Y = model_MLE.Y
+model.kf = model_MLE.kf
 # 1.3 run model and get results
 """
-return {"A iterations": A_list, 
-"Fnorm iterations": Fnorm_list, 
-"Simple Q iterations": obj_list, 
-"General Q iteratioins": None, 
-"Loglikelihood iterations": None}
+return {"A iterations": A_list, "Fnorm iterations": Fnorm_list, "Simple Q iterations": obj_list, "General Q iteratioins": None, "Loglikelihood iterations": None}
 """
-results = model.parameter_estimation(num_iteration=30, gamma=0.1, eps=1e-5, xi=1e-5)
-_, A_list_MLE, Fnorm_list_MLE, Neg_Loglikelihood_list_MLE = model_MLE.parameter_estimation(num_iteration=30)
+results = model.parameter_estimation(num_iteration=100, gamma=0.1, eps=1e-5, xi=1e-5)
+_, Q_list_MLE, Fnorm_list_MLE, Neg_Loglikelihood_list_MLE = model_MLE.parameter_estimation(num_iteration=100)
 
 # 2. analysis
 # 2.1 unpack results
-A_list = results["A iterations"]
+Q_list = results["Q iterations"]
 Fnorm_list = results["Fnorm iterations"]
-Q_list = results["Simple Q iterations"]
+Q_obj_list = results["Simple Q iterations"]
 Neg_Loglikelihood_list = results["Loglikelihood iterations"]
 # 2.2 visulization
 # 2.2.1 print final A
-print("True A:\n", A)
-print("Final A:\n", A_list[-1])
-print("Final A MLE:\n", A_list_MLE[-1])
-print("Final Fnorm:\n", Fnorm_list[-1])
+print("True Q:\n", Q)
 print("Final Q:\n", Q_list[-1])
+print("Final Q MLE:\n", Q_list_MLE[-1])
+print("Final Fnorm:\n", Fnorm_list[-1])
+# print("Final Q obj function:\n", Q_obj_list[-1])
 print("Final Neg Loglikelihood:\n", Neg_Loglikelihood_list[-1])
 print("Final Neg Loglikelihood MLE:\n", Neg_Loglikelihood_list_MLE[-1])
 # 2.2.2 plot fnorm + obj + loglikelihood
 plt.style.use('ggplot')
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-fig = plt.figure(figsize=(10, 8))
+fig = plt.figure(figsize=(10, 4))
 fig.suptitle("GraphEM Algorithm")
 
-ax1 = fig.add_subplot(2, 2, 1)
-ax1.plot(Fnorm_list[1:], c=colors[0], label="GraphEM")
-ax1.plot(Fnorm_list_MLE[1:], c=colors[1], label="MLE")
+ax1 = fig.add_subplot(1, 2, 1)
+ax1.plot(Fnorm_list, c=colors[0], label="GraphEM")
+ax1.plot(Fnorm_list_MLE, c=colors[1], label="MLE")
 ax1.set_xlabel("t")
-ax1.set_ylabel(r"$\| A_{true} - A^{(t)} \|_{F}$")
+ax1.set_ylabel(r"$\| Q_{true} - Q^{(t)} \|_{F}$")
 ax1.legend()
 
 # ax2 = fig.add_subplot(1, 3, 2)
@@ -72,37 +67,19 @@ ax1.legend()
 # ax2.set_xlabel("t")
 # ax2.set_ylabel(r"$ \mathcal{Q} (A^{(t)}, A=A^{(t)}) $")
 
-baseline = -model.loglikelihood(theta=A, Y=model.Y)
+baseline = model.loglikelihood(theta=Q, Y=model.Y)
 
-ax2 = fig.add_subplot(2, 2, 2)
-ax2.plot(Neg_Loglikelihood_list, c=colors[2], label="GraphEM")
-ax2.plot(Neg_Loglikelihood_list_MLE, c=colors[3], label="MLE")
-ax2.axhline(y=baseline, color=colors[4], linestyle='--', label=r'$ -\ell (A^{ture} \mid Y) $')
-ax2.set_xlabel("t")
-ax2.set_ylabel(r"$ -\ell (A^{(t)} \mid Y) $")
-ax2.legend()
-
-ax3 = fig.add_subplot(2, 2, 3)
-ax3.plot([a - b for a, b in zip(Neg_Loglikelihood_list_MLE, Neg_Loglikelihood_list)][1:], c=colors[5], label="MLE - GraphEM")
+ax3 = fig.add_subplot(1, 2, 2)
+ax3.plot(Neg_Loglikelihood_list, c=colors[2], label="GraphEM")
+ax3.plot(Neg_Loglikelihood_list_MLE, c=colors[3], label="MLE")
+ax3.axhline(y=baseline, color=colors[4], linestyle='--', label=r'$ -\ell (Q^{ture} \mid Y) $')
 ax3.set_xlabel("t")
-ax3.set_ylabel(r"$ \Delta -\ell (A^{(t)} \mid Y) $")
+ax3.set_ylabel(r"$ -\ell (Q^{(t)} \mid Y) $")
 ax3.legend()
 
-ax4 = fig.add_subplot(2, 2, 4)
-ax4.plot(Q_list, c=colors[6], label="$ Q = q + L1 $")
-ax4.set_xlabel("t")
-ax4.set_ylabel(r"$ Q $")
-ax4.legend()
-
 plt.tight_layout()
-import os
-os.makedirs("./Result/Experiment7", exist_ok=True)
-plt.savefig("./Result/Experiment7/GraphEM Comparasion Results.pdf")
 plt.show()
 
-"""
-No Use, for plotting the weighted graph
-"""
 # import networkx as nx
 
 # # Function to plot a weighted directed graph

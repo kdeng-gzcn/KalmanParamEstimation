@@ -84,8 +84,8 @@ for i = 1:Nit_em % EM iterations
         [z_mean_kalman_em(:,k),P_kalman_em(:,:,k),yk_kalman_em(:,k),Sk_kalman_em(:,:,k)] = Kalman_update(x(:,k),z_mean_kalman_em(:,k-1),P_kalman_em(:,:,k-1),D1_em,D2,R,Q);
     end
     
-    %compute loss function (ML for now, no prior)
-    PhiK(i) = Compute_PhiK(0,Sk_kalman_em,yk_kalman_em);
+    %compute loss function (ML for now, no prior), its actually pdf of normal, denote by metric
+    PhiK(i) = Compute_PhiK(0,Sk_kalman_em,yk_kalman_em); % L for metric, monitor
     
     %compute penalty function  before update
     Reg_before = Compute_Prior_D1(D1_em,reg);
@@ -110,19 +110,19 @@ for i = 1:Nit_em % EM iterations
     [Sigma,Phi,B,C,D] = EM_parameters(x,z_mean_smooth_em,P_smooth_em,G_smooth_em,z_mean_smooth0_em,P_smooth0_em,G_smooth0_em);
     
     %compute majorant function for ML term before update
-    Maj_before(i) = ComputeMaj(z0,P0,Q,R,z_mean_smooth0_em,P_smooth0_em,D1_em,D2,Sigma,Phi,B,C,D,K);
+    Maj_before(i) = ComputeMaj(z0,P0,Q,R,z_mean_smooth0_em,P_smooth0_em,D1_em,D2,Sigma,Phi,B,C,D,K); % q
     
-    Maj_before(i) = Maj_before(i) + Reg_before;     %add prior term (= majorant for MAP term)
+    Maj_before(i) = Maj_before(i) + Reg_before;     %add prior term (= majorant for MAP term) Q = q + L0
     
     %3/ EM Update
-    Maj_D1_before = ComputeMaj_D1(sigma_Q,D1_em,Sigma,Phi,C,K) + Reg_before;
+    Maj_D1_before = ComputeMaj_D1(sigma_Q,D1_em,Sigma,Phi,C,K) + Reg_before; % Q = q + L0 in paper
     D1_em_ = GRAPHEM_update(Sigma,Phi,C,K,sigma_Q,reg,D1_em,Maj_D1_before);
     
     %compute majorant function for ML term after update (to check decrease)
-    Maj_after(i) = ComputeMaj(z0,P0,Q,R,z_mean_smooth0_em,P_smooth0_em,D1_em_,D2,Sigma,Phi,B,C,D,K);
+    Maj_after(i) = ComputeMaj(z0,P0,Q,R,z_mean_smooth0_em,P_smooth0_em,D1_em_,D2,Sigma,Phi,B,C,D,K); % q
     %add penalty function after update
-    Reg_after  = Compute_Prior_D1(D1_em_,reg);
-    Maj_after(i) = Maj_after(i) + Reg_after;
+    Reg_after  = Compute_Prior_D1(D1_em_,reg); % L0
+    Maj_after(i) = Maj_after(i) + Reg_after; % Q = q + L0
     
     
     if(Maj_after(i)> Maj_before(i))

@@ -1,19 +1,11 @@
-# import class and functions
-from Model.KalmanClass import KalmanClass
-from Model import funcs_GraphEM
-# import pkg
-import numpy as np
+class GraphEMforQ(KalmanClass):
 
-class GraphEMforA(KalmanClass):
-
-    def __init__(self, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None, reg_name=None):
+    def __init__(self, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None):
         """
         This is for data generation part
         """
         # set up true model params and get X, Y
         super().__init__(A, Sigma_q, H, Sigma_r, mu_0, P_0)
-
-        self.reg_name = reg_name
 
     def quantities_from_Q(self, Theta, Y=None):
 
@@ -93,60 +85,44 @@ class GraphEMforA(KalmanClass):
         We simplify the question into computing PhiBCD... and do optim process directly
         """
         # unpakck the params and set up hyper params
+        A = A
         gamma = gamma
         Sigma = Sigma
         Phi = Phi
         C = C
         T = T
-        Q = Q
         xi = xi
 
         num_iteration = 1000
         
         # set up start point, which is A from last step, to be start hidden var
-        Y = A
-        opt_A = A
-        obj_q = funcs_GraphEM.q_wrt_A(Q=self.Sigma_q, A=opt_A, Sigma=Sigma, Phi=Phi, C=C, T=T)
-        if self.reg_name == "Laplace":
-            obj_norm = funcs_GraphEM.L1_wrt_A(A=opt_A, gamma=gamma)
-        if self.reg_name == "Gaussian":
-            obj_norm = funcs_GraphEM.Gaussian_Prior_wrt_A(A=opt_A, gamma=gamma)
-        if self.reg_name == "Laplace_Gaussian":
-            obj_norm = funcs_GraphEM.L1_Gaussian_Prior_wrt_A(A=opt_A, gamma=gamma)
-        obj_list_em = [obj_q + obj_norm] # Q = q + reg
+        Y = Q
+        opt_Q = Q
+        obj_q = funcs_GraphEM.q_wrt_Q(Q=opt_Q, A=A, Sigma=Sigma, Phi=Phi, C=C, T=T)
+        obj_norm = funcs_GraphEM.L1_wrt_Q(Q=opt_Q, gamma=gamma)
+        obj_list_em = [obj_q + obj_norm]
 
         # start iteration
         for idx_iteration in range(num_iteration): # add new stop condition
 
             # update optim var
-            opt_A = funcs_GraphEM.opt_wrt_L1(A=Y, gamma=gamma)
-            if self.reg_name == "Laplace":
-                opt_A = funcs_GraphEM.opt_wrt_L1(A=Y, gamma=gamma)
-            if self.reg_name == "Gaussian":
-                opt_A = funcs_GraphEM.opt_wrt_Gaussian_Prior(A=Y, gamma=gamma)
-            if self.reg_name == "Laplace_Gaussian":
-                opt_A = funcs_GraphEM.opt_wrt_L1_Gaussian_Prior(A=Y, gamma=gamma)
+            opt_Q = funcs_GraphEM.opt_wrt_L1_given_Q(Q=Q, gamma=gamma)
 
             # print("A from L1 opt:\n", opt_A)
 
             # store obj in each step
-            obj_q = funcs_GraphEM.q_wrt_A(Q=self.Sigma_q, A=opt_A, Sigma=Sigma, Phi=Phi, C=C, T=T)
-            if self.reg_name == "Laplace":
-                obj_norm = funcs_GraphEM.L1_wrt_A(A=opt_A, gamma=gamma)
-            if self.reg_name == "Gaussian":
-                obj_norm = funcs_GraphEM.Gaussian_Prior_wrt_A(A=opt_A, gamma=gamma)
-            if self.reg_name == "Laplace_Gaussian":
-                obj_norm = funcs_GraphEM.L1_Gaussian_Prior_wrt_A(A=opt_A, gamma=gamma)
+            obj_q = funcs_GraphEM.q_wrt_Q(Q=opt_Q, A=self.A, Sigma=Sigma, Phi=Phi, C=C, T=T)
+            obj_norm = funcs_GraphEM.L1_wrt_Q(Q=opt_Q, gamma=gamma)
             obj_list_em.append(obj_q + obj_norm)
 
             # compute optim for another part in object function
             # note that here we use 2 * A - Y
-            V = funcs_GraphEM.opt_wrt_q(A=2 * opt_A - Y, C=C, Phi=Phi, Q=Q, T=T)
+            V = funcs_GraphEM.opt_wrt_q(Q=2 * opt_Q - Y, C=C, Phi=Phi, A=A, T=T)
 
             # print("A from q opt:\n", V)
 
             # update hidden var
-            Y = Y + V - opt_A
+            Y = Y + V - opt_Q
 
             # check stop condition
             # if consecutive values are very similar, i.e. less than eps
@@ -156,7 +132,7 @@ class GraphEMforA(KalmanClass):
             # if we are actually optimizing, i.e. strictly decreasing 
             # no need, its decreasing
 
-        return opt_A
+        return opt_Q
 
     def parameter_estimation(self, Y=None, num_iteration=100, gamma=0.001, eps=1e-5, xi=1e-5):
         """
@@ -165,20 +141,21 @@ class GraphEMforA(KalmanClass):
         if Y is None:
             Y = self.Y
 
-        # init A value
-        self.theta = "A"
-        init_A = np.random.uniform(low=0., high=1., size=self.A.shape)
-        fnorm = np.linalg.norm(init_A - self.A, 'fro')
-        loglikelihood = self.loglikelihood(theta=init_A, Y=Y)
+        # init Q value
+        self.theta = "Q"
+        init_Q = np.random.uniform(low=0, high=1., size=self.Sigma_q.shape)
+        init_Q = init_Q @ init_Q.T
+        fnorm = np.linalg.norm(init_Q - self.Sigma_q, 'fro')
+        loglikelihood = self.loglikelihood(theta=init_Q, Y=Y)
 
-        print('A0:\n', init_A)
-        print("F-norm(A0, trueA)0:\n", fnorm)
-        print("Loglikelihood(A0)0:\n", -loglikelihood)
+        print('Q0:\n', init_Q)
+        print("F-norm(Q0, trueQ)0:\n", fnorm)
+        print("Loglikelihood(Q0)0:\n", -loglikelihood)
 
         # model params
-        A = init_A
+        # A = init_A
         # H = self.H
-        # Q = self.Sigma_q
+        Q = init_Q
         # R = self.Sigma_r
         # m0 = self.mu_0
         # P0 = self.P_0
@@ -192,7 +169,7 @@ class GraphEMforA(KalmanClass):
 
         # init our process log
         # use loglikelihood for A | Y as real obj func
-        A_list = [A]
+        Q_list = [Q]
         Fnorm_list = [fnorm]
         loglikelihood_list = [-loglikelihood]
         other_metric_list = []
@@ -203,7 +180,7 @@ class GraphEMforA(KalmanClass):
         for idx_iteration in range(num_iteration):
             
             # return {"Sigma": Sigma, "Phi": Phi, "B": B, "C": C, "D": D, "EX Smoother": Mu_Smoother, "P Smoother": Ps_Smoother}
-            result = self.quantities_from_Q(Theta=A, Y=Y)
+            result = self.quantities_from_Q(Theta=Q, Y=Y)
 
             # unpack the result
             Sigma = result['Sigma']
@@ -213,23 +190,23 @@ class GraphEMforA(KalmanClass):
             D = result['D']
 
             # object func for last step
-            obj_q = funcs_GraphEM.q_wrt_A(Q=self.Sigma_q, A=A, Sigma=Sigma, Phi=Phi, C=C, T=T)
-            obj_norm = funcs_GraphEM.L1_wrt_A(A=A, gamma=gamma)
+            obj_q = funcs_GraphEM.q_wrt_Q(Q=Q, A=self.A, Sigma=Sigma, Phi=Phi, C=C, T=T)
+            obj_norm = funcs_GraphEM.L1_wrt_Q(Q=Q, gamma=gamma)
             obj_q_list.append(obj_q)
             obj_norm_list.append(obj_norm)
             obj_list.append(obj_q + obj_norm)
 
             # optim em
-            A = self.Douglas_Rachford(A=A, gamma=gamma, Sigma=Sigma, Phi=Phi, C=C, T=T, Q=self.Sigma_q, xi=xi)
-            fnorm = np.linalg.norm(A - self.A, 'fro')
-            loglikelihood = self.loglikelihood(theta=A, Y=Y)
+            Q = self.Douglas_Rachford(A=self.A, gamma=gamma, Sigma=Sigma, Phi=Phi, C=C, T=T, Q=Q, xi=xi)
+            fnorm = np.linalg.norm(Q - self.Sigma_q, 'fro')
+            loglikelihood = self.loglikelihood(theta=Q, Y=Y)
 
             # object func for this step
-            obj_q = funcs_GraphEM.q_wrt_A(Q=self.Sigma_q, A=A, Sigma=Sigma, Phi=Phi, C=C, T=T)
-            obj_norm = funcs_GraphEM.L1_wrt_A(A=A, gamma=gamma)
+            obj_q = funcs_GraphEM.q_wrt_Q(Q=self.Sigma_q, A=self.A, Sigma=Sigma, Phi=Phi, C=C, T=T)
+            obj_norm = funcs_GraphEM.L1_wrt_Q(Q=Q, gamma=gamma)
 
             # store answers with list
-            A_list.append(A)
+            Q_list.append(Q)
             Fnorm_list.append(fnorm)
             loglikelihood_list.append(-loglikelihood)
 
@@ -248,4 +225,4 @@ class GraphEMforA(KalmanClass):
         obj_list.append(obj_q + obj_norm)
 
         # summary the results we get from algorithm
-        return {"A iterations": A_list, "Fnorm iterations": Fnorm_list, "Simple Q iterations": obj_list, "General Q iteratioins": None, "Loglikelihood iterations": loglikelihood_list}
+        return {"Q iterations": Q_list, "Fnorm iterations": Fnorm_list, "Simple Q iterations": obj_list, "General Q iteratioins": None, "Loglikelihood iterations": loglikelihood_list}

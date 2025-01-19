@@ -1,16 +1,19 @@
-# # Graph EM main with loglikelihood and EM without L1 norm penalty
-# Estimate Q but with numerical problem
-# and this main.py is for store and analyze the results
+"""
+
+same transition matrix A with 3 different prior regularization
+
+"""
 
 # 0. import pkg
 import numpy as np
+np.random.seed(123456) # set seed 0
 from matplotlib import pyplot as plt
-from Model.GraphEM import GraphEMforQ
+from Model.GraphEM import GraphEMforA
 from Model.KalmanClass import EMParameterEstimationAll
 
 # 1. load model
 # 1.1 setting model params and hyper params
-dim_x = 5
+dim_x = 16
 A = np.eye(dim_x) * 0.9  # Initial A matrix, scaled identity matrix
 Q = np.eye(dim_x) * 0.01  # Small noise in Sigma_q
 H = np.eye(dim_x)  # H matrix as identity
@@ -18,81 +21,98 @@ R = np.eye(dim_x) * 0.01  # Small noise in Sigma_r
 m0 = np.zeros(dim_x)  # Zero vector for mu_0
 P0 = np.eye(dim_x) * 0.01  # Small values in P_0
 # 1.2 load model
-model_MLE = EMParameterEstimationAll(var="Q", A=A, Sigma_q=Q, H=H, Sigma_r=R, mu_0=m0, P_0=P0)
-model = GraphEMforQ(A=A, Sigma_q=Q, H=H, Sigma_r=R, mu_0=m0, P_0=P0)
-model.Y = model_MLE.Y
-model.kf = model_MLE.kf
+model_MLE = EMParameterEstimationAll(var="A", A=A, Sigma_q=Q, H=H, Sigma_r=R, mu_0=m0, P_0=P0)
+model_list = []
+for reg in ["Laplace", "Gaussian", "Laplace_Gaussian"]:
+    model = GraphEMforA(A=A, Sigma_q=Q, H=H, Sigma_r=R, mu_0=m0, P_0=P0, reg_name=reg)
+    model.Y = model_MLE.Y
+    model_list.append(model)
 # 1.3 run model and get results
 """
 return {"A iterations": A_list, "Fnorm iterations": Fnorm_list, "Simple Q iterations": obj_list, "General Q iteratioins": None, "Loglikelihood iterations": None}
 """
-results = model.parameter_estimation(num_iteration=100, gamma=0.1, eps=1e-5, xi=1e-5)
-_, Q_list_MLE, Fnorm_list_MLE, Neg_Loglikelihood_list_MLE = model_MLE.parameter_estimation(num_iteration=100)
+_, A_list_MLE, Fnorm_list_MLE, Neg_Loglikelihood_list_MLE = model_MLE.parameter_estimation(num_iteration=30)
+res_list = []
+for idx, reg in enumerate(["Laplace", "Gaussian", "Laplace_Gaussian"]):
+    results = model_list[idx].parameter_estimation(num_iteration=30, gamma=0.1, eps=1e-5, xi=1e-5)
+    res_list.append(results)
 
 # 2. analysis
 # 2.1 unpack results
-Q_list = results["Q iterations"]
-Fnorm_list = results["Fnorm iterations"]
-Q_obj_list = results["Simple Q iterations"]
-Neg_Loglikelihood_list = results["Loglikelihood iterations"]
+A_seq_list = []
+Fnorm_seq_list = []
+Q_seq_list = []
+Neg_Loglikelihood_seq_list = []
+for idx, reg in enumerate(["Laplace", "Gaussian", "Laplace_Gaussian"]):
+    A_list = res_list[idx]["A iterations"]
+    Fnorm_list = res_list[idx]["Fnorm iterations"]
+    Q_list = res_list[idx]["Simple Q iterations"]
+    Neg_Loglikelihood_list = res_list[idx]["Loglikelihood iterations"]
+
+    A_seq_list.append(A_list)
+    Fnorm_seq_list.append(Fnorm_list)
+    Q_seq_list.append(Q_list)
+    Neg_Loglikelihood_seq_list.append(Neg_Loglikelihood_list)
+
 # 2.2 visulization
-# 2.2.1 print final A
-print("True Q:\n", Q)
-print("Final Q:\n", Q_list[-1])
-print("Final Q MLE:\n", Q_list_MLE[-1])
-print("Final Fnorm:\n", Fnorm_list[-1])
-# print("Final Q obj function:\n", Q_obj_list[-1])
-print("Final Neg Loglikelihood:\n", Neg_Loglikelihood_list[-1])
-print("Final Neg Loglikelihood MLE:\n", Neg_Loglikelihood_list_MLE[-1])
-# 2.2.2 plot fnorm + obj + loglikelihood
+# 2.2.1 plot fnorm / obj (Q = q + reg) / loglikelihood
 plt.style.use('ggplot')
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-fig = plt.figure(figsize=(10, 4))
-fig.suptitle("GraphEM Algorithm")
+fig = plt.figure(figsize=(10, 8))
+fig.suptitle("GraphEM with different reg term")
 
-ax1 = fig.add_subplot(1, 2, 1)
-ax1.plot(Fnorm_list, c=colors[0], label="GraphEM")
-ax1.plot(Fnorm_list_MLE, c=colors[1], label="MLE")
+baseline = -model.loglikelihood(theta=A, Y=model.Y)
+
+ax1 = fig.add_subplot(2, 2, 1)
+ax1.plot(Neg_Loglikelihood_list_MLE, c=colors[0], label="MLEM")
+ax1.axhline(y=baseline, color=colors[1], linestyle='--', label=r'$ -\ell (A^{ture} \mid Y) $')
 ax1.set_xlabel("t")
-ax1.set_ylabel(r"$\| Q_{true} - Q^{(t)} \|_{F}$")
+ax1.set_ylabel(r"$ -\ell (A^{(t)} \mid Y) $")
 ax1.legend()
 
-# ax2 = fig.add_subplot(1, 3, 2)
-# ax2.plot(Q_list, c=colors[1])
-# ax2.set_xlabel("t")
-# ax2.set_ylabel(r"$ \mathcal{Q} (A^{(t)}, A=A^{(t)}) $")
+ax2 = fig.add_subplot(2, 2, 2)
+ax2.plot(Neg_Loglikelihood_seq_list[0], c=colors[2], label="GraphEM with Laplace reg")
+ax2.axhline(y=baseline, color=colors[1], linestyle='--', label=r'$ -\ell (A^{ture} \mid Y) $')
+ax2.set_xlabel("t")
+ax2.set_ylabel(r"$ -\ell (A^{(t)} \mid Y) $")
+ax2.legend()
 
-baseline = model.loglikelihood(theta=Q, Y=model.Y)
-
-ax3 = fig.add_subplot(1, 2, 2)
-ax3.plot(Neg_Loglikelihood_list, c=colors[2], label="GraphEM")
-ax3.plot(Neg_Loglikelihood_list_MLE, c=colors[3], label="MLE")
-ax3.axhline(y=baseline, color=colors[4], linestyle='--', label=r'$ -\ell (Q^{ture} \mid Y) $')
+ax3 = fig.add_subplot(2, 2, 3)
+ax3.plot(Neg_Loglikelihood_seq_list[1], c=colors[3], label="GraphEM with Gaussian reg")
+ax3.axhline(y=baseline, color=colors[1], linestyle='--', label=r'$ -\ell (A^{ture} \mid Y) $')
 ax3.set_xlabel("t")
-ax3.set_ylabel(r"$ -\ell (Q^{(t)} \mid Y) $")
+ax3.set_ylabel(r"$ -\ell (A^{(t)} \mid Y) $")
 ax3.legend()
 
+ax4 = fig.add_subplot(2, 2, 4)
+ax4.plot(Neg_Loglikelihood_seq_list[2], c=colors[4], label="GraphEM with Gaussian + Laplace reg")
+ax4.axhline(y=baseline, color=colors[1], linestyle='--', label=r'$ -\ell (A^{ture} \mid Y) $')
+ax4.set_xlabel("t")
+ax4.set_ylabel(r"$ -\ell (A^{(t)} \mid Y) $")
+ax4.legend()
+
 plt.tight_layout()
+import os
+os.makedirs("./Result/Experiment8/", exist_ok=True)
+plt.savefig("./Result/Experiment8/GraphEM With 3 Different Reg Term.pdf")
 plt.show()
 
-# import networkx as nx
+# 2.2.2 text result
+print("True A:")
+print(A)
 
-# # Function to plot a weighted directed graph
-# def plot_weighted_directed_graph(matrix, title="Weighted Directed Graph"):
-#     G = nx.from_numpy_array(matrix, create_using=nx.DiGraph())  # Create a directed graph
-#     pos = nx.spring_layout(G)  # Layout for positioning nodes
+print("Baseline:")
+print(baseline)
 
-#     # Draw the graph
-#     nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=500, arrows=True)
-#     # Get edge weights and display them as labels
-#     edge_labels = nx.get_edge_attributes(G, 'weight')
-#     nx.draw_networkx_edge_labels(G, pos, edge_labels={(u, v): f"{d:.2f}" for u, v, d in G.edges(data='weight')})
-#     plt.title(title)
-#     plt.show()
+print("Final Neg Loglikelihood MLE:")
+print(Neg_Loglikelihood_list_MLE[-1])
 
-# # Plot the initial matrix as a directed graph
-# plot_weighted_directed_graph(A, title="Initial A Matrix as Weighted Directed Graph")
+print("Final Neg Loglikelihood Laplace Reg:")
+print(Neg_Loglikelihood_seq_list[0][-1])
 
-# # Plot the final matrix as a directed graph
-# plot_weighted_directed_graph(A_list[-1], title="Final A Matrix as Weighted Directed Graph")
+print("Final Neg Loglikelihood Gaussian Reg:")
+print(Neg_Loglikelihood_seq_list[1][-1])
+
+print("Final Neg Loglikelihood Laplace+Gaussian Reg:")
+print(Neg_Loglikelihood_seq_list[2][-1])

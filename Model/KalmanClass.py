@@ -761,7 +761,8 @@ class EMParameterEstimationAll(KalmanClass):
             Theta = np.random.uniform(low=0., high=0.02, size=self.P_0.shape)
             m = np.linalg.norm(Theta - self.P_0, 'fro')
         elif self.theta == "Q":
-            Theta = np.random.uniform(low=0., high=0.02, size=self.Sigma_q.shape)
+            Theta = np.random.uniform(low=0., high=0.5, size=self.Sigma_q.shape)
+            Theta = Theta @ Theta.T # symmetric Cov Mat
             m = np.linalg.norm(Theta - self.Sigma_q, 'fro')
             loglike = self.loglikelihood(theta=Theta, Y=Y)
         elif self.theta == "R":
@@ -809,7 +810,9 @@ class EMParameterEstimationAll(KalmanClass):
             metric.append(m)
             neg_loglikelihood_list.append(-loglike)
 
-        return Theta, Thetas, metric, neg_loglikelihood_list
+        fnorm_list = metric
+
+        return Theta, Thetas, fnorm_list, neg_loglikelihood_list
 
 if __name__ == "__main__":
     # # use build-in data
