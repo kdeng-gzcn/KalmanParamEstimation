@@ -1,12 +1,15 @@
 """
 
-same transition matrix A with 3 different prior regularization
+this experiment is for testing 3 different priors for 5+ types of matrix
+
+For each type, we find the most suitable prior for it.
 
 """
 
 # 0. import pkg
 import numpy as np
-np.random.seed(123456) # set seed 0
+import os
+np.random.seed(0)
 from matplotlib import pyplot as plt
 from Model.GraphEM import GraphEMforA
 from Model.KalmanClass import EMParameterEstimationAll
@@ -14,12 +17,15 @@ from Model.KalmanClass import EMParameterEstimationAll
 # 1. load model
 # 1.1 setting model params and hyper params
 dim_x = 16
-A = np.eye(dim_x) * 0.9  # Initial A matrix, scaled identity matrix
-Q = np.eye(dim_x) * 0.01  # Small noise in Sigma_q
-H = np.eye(dim_x)  # H matrix as identity
-R = np.eye(dim_x) * 0.01  # Small noise in Sigma_r
-m0 = np.zeros(dim_x)  # Zero vector for mu_0
-P0 = np.eye(dim_x) * 0.01  # Small values in P_0
+root = "./data/prior experiment/small world graph"
+# root = "./data/demo/"
+graph = "Star Graph"
+A = np.load(os.path.join(root, "A.npy"))
+Q = np.load(os.path.join(root, "Q.npy"))
+H = np.load(os.path.join(root, "H.npy"))
+R = np.load(os.path.join(root, "R.npy"))
+m0 = np.load(os.path.join(root, "m0.npy"))
+P0 = np.load(os.path.join(root, "P0.npy"))
 # 1.2 load model
 model_MLE = EMParameterEstimationAll(var="A", A=A, Sigma_q=Q, H=H, Sigma_r=R, mu_0=m0, P_0=P0)
 model_list = []
@@ -58,7 +64,7 @@ plt.style.use('ggplot')
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 fig = plt.figure(figsize=(10, 8))
-fig.suptitle("GraphEM with different reg term")
+fig.suptitle(f"{graph} for GraphEM with different reg term")
 
 baseline = -model.loglikelihood(theta=A, Y=model.Y)
 
@@ -92,13 +98,15 @@ ax4.legend()
 
 plt.tight_layout()
 import os
-os.makedirs("./Result/Experiment8/", exist_ok=True)
-plt.savefig("./Result/Experiment8/GraphEM With 3 Different Reg Term.pdf")
-plt.show()
+os.makedirs("./Result/Experiment9/", exist_ok=True)
+plt.savefig(f"./Result/Experiment9/{graph} with GraphEM With 3 Different Reg Term.pdf")
 
 # 2.2.2 text result
 print("True A:")
 print(A)
+
+print("Ahat from EM:")
+print(A_list_MLE[-1])
 
 print("Baseline:")
 print(baseline)
@@ -114,3 +122,5 @@ print(Neg_Loglikelihood_seq_list[1][-1])
 
 print("Final Neg Loglikelihood Laplace+Gaussian Reg:")
 print(Neg_Loglikelihood_seq_list[2][-1])
+
+plt.show()

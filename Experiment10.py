@@ -1,25 +1,43 @@
 """
 
-same transition matrix A with 3 different prior regularization
+test for experiment9, why ex. 9 failed???
 
 """
 
+def init_A():
+
+    """
+    
+    create A with spectral limit
+    
+    """
+
+    A = None
+
+    return A
+
 # 0. import pkg
 import numpy as np
-np.random.seed(123456) # set seed 0
+import os
+np.random.seed(0)
 from matplotlib import pyplot as plt
 from Model.GraphEM import GraphEMforA
 from Model.KalmanClass import EMParameterEstimationAll
 
 # 1. load model
 # 1.1 setting model params and hyper params
-dim_x = 16
+dim_x =2
 A = np.eye(dim_x) * 0.9  # Initial A matrix, scaled identity matrix
+A[1, 0] = 0.1
+
+print(f"modified A: {A}")
+
 Q = np.eye(dim_x) * 0.01  # Small noise in Sigma_q
 H = np.eye(dim_x)  # H matrix as identity
 R = np.eye(dim_x) * 0.01  # Small noise in Sigma_r
 m0 = np.zeros(dim_x)  # Zero vector for mu_0
 P0 = np.eye(dim_x) * 0.01  # Small values in P_0
+
 # 1.2 load model
 model_MLE = EMParameterEstimationAll(var="A", A=A, Sigma_q=Q, H=H, Sigma_r=R, mu_0=m0, P_0=P0)
 model_list = []
@@ -31,10 +49,10 @@ for reg in ["Laplace", "Gaussian", "Laplace_Gaussian"]:
 """
 return {"A iterations": A_list, "Fnorm iterations": Fnorm_list, "Simple Q iterations": obj_list, "General Q iteratioins": None, "Loglikelihood iterations": None}
 """
-_, A_list_MLE, Fnorm_list_MLE, Neg_Loglikelihood_list_MLE = model_MLE.parameter_estimation(num_iteration=30)
+_, A_list_MLE, Fnorm_list_MLE, Neg_Loglikelihood_list_MLE = model_MLE.parameter_estimation(num_iteration=10)
 res_list = []
 for idx, reg in enumerate(["Laplace", "Gaussian", "Laplace_Gaussian"]):
-    results = model_list[idx].parameter_estimation(num_iteration=30, gamma=0.1, eps=1e-5, xi=1e-5)
+    results = model_list[idx].parameter_estimation(num_iteration=10, gamma=0.1, eps=1e-5, xi=1e-5)
     res_list.append(results)
 
 # 2. analysis
@@ -58,7 +76,7 @@ plt.style.use('ggplot')
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 fig = plt.figure(figsize=(10, 8))
-fig.suptitle("GraphEM with different reg term")
+fig.suptitle(f"Tests for GraphEM with different reg term")
 
 baseline = -model.loglikelihood(theta=A, Y=model.Y)
 
@@ -92,13 +110,15 @@ ax4.legend()
 
 plt.tight_layout()
 import os
-os.makedirs("./Result/Experiment8/", exist_ok=True)
-plt.savefig("./Result/Experiment8/GraphEM With 3 Different Reg Term.pdf")
-plt.show()
+os.makedirs("./Result/Experiment10/", exist_ok=True)
+plt.savefig(f"./Result/Experiment10/Tests with GraphEM With 3 Different Reg Term.pdf")
 
 # 2.2.2 text result
 print("True A:")
 print(A)
+
+print("Ahat from EM:")
+print(A_list_MLE[-1])
 
 print("Baseline:")
 print(baseline)
@@ -114,3 +134,5 @@ print(Neg_Loglikelihood_seq_list[1][-1])
 
 print("Final Neg Loglikelihood Laplace+Gaussian Reg:")
 print(Neg_Loglikelihood_seq_list[2][-1])
+
+plt.show()
