@@ -1,14 +1,19 @@
 """
+
 This module is for functions in GraphEM
+
 """
 
 import numpy as np
 
 def loglikelihood_multi_normal():
+
     pass
 
 """
-q == approx of loglikelihood
+
+q + reg == approx of loglikelihood (lower bound)
+
 """
 
 def q_wrt_A(Q=None, A=None, Sigma=None, Phi=None, C=None, T=None):
@@ -34,7 +39,9 @@ def q_wrt_A(Q=None, A=None, Sigma=None, Phi=None, C=None, T=None):
 #     return q
 
 """
+
 Prox q at A == argmin_A q
+
 """
 
 def opt_wrt_q(A=None, C=None, Phi=None, Q=None, T=None):
@@ -52,7 +59,9 @@ def opt_wrt_q(A=None, C=None, Phi=None, Q=None, T=None):
     return Aprox
 
 """
+
 Regular Term
+
 """
 
 def L1_wrt_A(A=None, gamma=None):
@@ -89,7 +98,9 @@ def L1_Gaussian_Prior_wrt_A(A=None, gamma=None):
     return reg_value
 
 """
+
 Prox Regular Term at A == argmin_A L
+
 """
 
 def opt_wrt_L1(gamma=None, A=None):
@@ -115,10 +126,13 @@ def opt_wrt_Block_L1(A=None, gamma=None):
     pass
 
 def opt_wrt_L1_Gaussian_Prior(gamma=None, A=None):
+
     '''
+
     set gamma for norm inside optim method as 1
 
     note that arg gamma is for norm in obj function
+    
     '''
     
     argmin = np.sign(A / (1 + gamma)) * np.maximum(0, np.abs(A / (1 + gamma)) - (gamma / (1 + gamma)))

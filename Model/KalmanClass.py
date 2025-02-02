@@ -275,6 +275,10 @@ class KalmanClass(LinearGaussianDataGenerator):
             loglikelihoods.append(ell)
 
         return Thetas_for_plot, loglikelihoods
+    
+    def initial_value_for_A(self):
+
+        pass
 
 class GradientParameterEstimationA(KalmanClass):
     """
