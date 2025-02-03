@@ -22,7 +22,7 @@ import os
 np.random.seed(0)
 from matplotlib import pyplot as plt
 from Model.GraphEM import GraphEMforA
-from Model.KalmanClass import EMParameterEstimationAll
+from Model.EM import EMParameterEstimationAll
 
 # 1. load model
 # 1.1 setting model params and hyper params

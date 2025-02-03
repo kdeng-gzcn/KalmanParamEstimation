@@ -9,23 +9,29 @@ For each type, we find the most suitable prior for it.
 # 0. import pkg
 import numpy as np
 import os
-np.random.seed(0)
 from matplotlib import pyplot as plt
+import networkx as nx
+
 from Model.GraphEM import GraphEMforA
-from Model.KalmanClass import EMParameterEstimationAll
+from Model.EM import EMParameterEstimationAll
+
+seed = np.random.seed(0)
 
 # 1. load model
 # 1.1 setting model params and hyper params
-dim_x = 16
-root = "./data/prior experiment/small world graph"
-# root = "./data/demo/"
-graph = "Star Graph"
+root = "./data/prior experiment/block diagonal graph"
+# root = "./data/prior experiment/scale free graph"
+# root = "./data/prior experiment/bipartite graph"
+graph = "Block Diagonal"
 A = np.load(os.path.join(root, "A.npy"))
 Q = np.load(os.path.join(root, "Q.npy"))
 H = np.load(os.path.join(root, "H.npy"))
 R = np.load(os.path.join(root, "R.npy"))
 m0 = np.load(os.path.join(root, "m0.npy"))
 P0 = np.load(os.path.join(root, "P0.npy"))
+
+dimx = len(A)
+
 # 1.2 load model
 model_MLE = EMParameterEstimationAll(var="A", A=A, Sigma_q=Q, H=H, Sigma_r=R, mu_0=m0, P_0=P0)
 model_list = []
@@ -40,7 +46,7 @@ return {"A iterations": A_list, "Fnorm iterations": Fnorm_list, "Simple Q iterat
 _, A_list_MLE, Fnorm_list_MLE, Neg_Loglikelihood_list_MLE = model_MLE.parameter_estimation(num_iteration=30)
 res_list = []
 for idx, reg in enumerate(["Laplace", "Gaussian", "Laplace_Gaussian"]):
-    results = model_list[idx].parameter_estimation(num_iteration=30, gamma=0.1, eps=1e-5, xi=1e-5)
+    results = model_list[idx].parameter_estimation(num_iteration=30, gamma=0.1, eps=1e-3, xi=1e-3)
     res_list.append(results)
 
 # 2. analysis
@@ -58,15 +64,37 @@ for idx, reg in enumerate(["Laplace", "Gaussian", "Laplace_Gaussian"]):
     Q_seq_list.append(Q_list)
     Neg_Loglikelihood_seq_list.append(Neg_Loglikelihood_list)
 
+# 2.1.1 text result
+print("True A:")
+print(A)
+
+print("Ahat from EM (MLEM):")
+print(A_list_MLE[-1])
+
+baseline = -model.loglikelihood(theta=A, Y=model.Y)
+
+print("Baseline:")
+print(baseline)
+
+print("Final Neg Loglikelihood EM (MLEM):")
+print(Neg_Loglikelihood_list_MLE[-1])
+
+print("Final Neg Loglikelihood Laplace Reg:")
+print(Neg_Loglikelihood_seq_list[0][-1])
+
+print("Final Neg Loglikelihood Gaussian Reg:")
+print(Neg_Loglikelihood_seq_list[1][-1])
+
+print("Final Neg Loglikelihood Laplace+Gaussian Reg:")
+print(Neg_Loglikelihood_seq_list[2][-1])
+
 # 2.2 visulization
-# 2.2.1 plot fnorm / obj (Q = q + reg) / loglikelihood
+# 2.2.2 plot fnorm / obj (Q = q + reg) / loglikelihood
 plt.style.use('ggplot')
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 fig = plt.figure(figsize=(10, 8))
 fig.suptitle(f"{graph} for GraphEM with different reg term")
-
-baseline = -model.loglikelihood(theta=A, Y=model.Y)
 
 ax1 = fig.add_subplot(2, 2, 1)
 ax1.plot(Neg_Loglikelihood_list_MLE, c=colors[0], label="MLEM")
@@ -97,30 +125,80 @@ ax4.set_ylabel(r"$ -\ell (A^{(t)} \mid Y) $")
 ax4.legend()
 
 plt.tight_layout()
-import os
+
 os.makedirs("./Result/Experiment9/", exist_ok=True)
 plt.savefig(f"./Result/Experiment9/{graph} with GraphEM With 3 Different Reg Term.pdf")
 
-# 2.2.2 text result
-print("True A:")
-print(A)
+plt.show()
 
-print("Ahat from EM:")
-print(A_list_MLE[-1])
+def draw_weighted_directed_graph(adj_matrix, position=None, node_size=50, node_color='#FEDA8B', 
+                                 edge_color='#F4A582', edge_width_scale=7, arrow_size=10, font_size=6, 
+                                 font_color='black', edge_label_color='red', title=None, seed=seed): 
+    
+    # Convert adjacency matrix to a directed graph
+    graph = nx.from_numpy_array(adj_matrix, create_using=nx.DiGraph)
 
-print("Baseline:")
-print(baseline)
+    # Compute node positions if not provided
+    if position is None:
+        position = nx.spring_layout(graph, seed=seed)
 
-print("Final Neg Loglikelihood MLE:")
-print(Neg_Loglikelihood_list_MLE[-1])
+    # Draw nodes
+    nx.draw_networkx_nodes(
+        graph,
+        position,
+        node_size=node_size,
+        node_color=node_color,
+    )
 
-print("Final Neg Loglikelihood Laplace Reg:")
-print(Neg_Loglikelihood_seq_list[0][-1])
+    # Draw edges with custom arrow style
+    weights = [graph[u][v]['weight'] for u, v in graph.edges()]
+    nx.draw_networkx_edges(
+        graph,
+        position,
+        edge_color=edge_color,
+        width=[w * edge_width_scale for w in weights],
+        arrowstyle='->',
+        arrowsize=arrow_size,
+    )
 
-print("Final Neg Loglikelihood Gaussian Reg:")
-print(Neg_Loglikelihood_seq_list[1][-1])
+    # # Draw edge labels (weights)
+    # edge_labels = {(u, v): f"{graph[u][v]['weight']:.2f}" for u, v in graph.edges()}
+    # nx.draw_networkx_edge_labels(
+    #     graph,
+    #     position,
+    #     edge_labels=edge_labels,
+    #     font_color=edge_label_color,
+    # )
 
-print("Final Neg Loglikelihood Laplace+Gaussian Reg:")
-print(Neg_Loglikelihood_seq_list[2][-1])
+    # Draw node labels
+    nx.draw_networkx_labels(
+        graph,
+        position,
+        font_size=font_size,
+        font_color=font_color,
+    )
+
+    plt.title(title)
+
+    return position
+
+plt.style.use('default')
+fig = plt.figure(figsize=(10, 8))
+fig.suptitle(f"{graph} graphic results with different reg terms", fontsize=16)
+
+plt.subplot(2, 3, 1)
+pos = draw_weighted_directed_graph(A, title="True Value")
+
+plt.subplot(2, 3, 2)
+draw_weighted_directed_graph(A_list_MLE[-1], position=pos, title="MLEM")
+
+for i, (A_seq, reg) in enumerate(zip(A_seq_list, ["Laplace", "Gaussian", "Laplace_Gaussian"])):
+    plt.subplot(2, 3, i + 3)
+    draw_weighted_directed_graph(A_seq[-1], position=pos, title=reg)
+
+plt.tight_layout()
+
+os.makedirs("./Result/Experiment9/", exist_ok=True)
+plt.savefig(f"./Result/Experiment9/{graph} With 3 Different Reg Graphic Results.pdf")
 
 plt.show()
