@@ -66,6 +66,7 @@ class GraphEMforA(KalmanClass):
         D = np.zeros((Y[0].shape[0], Y[0].shape[0]))
 
         for k in range(1, T+1):
+
             # Sigma: Σ = (1/T) * Σ_{k=1}^{T} (P_s^k + m_s^k * (m_s^k)^T)
             Sigma += Ps_Smoother[k] + np.outer(Mu_Smoother[k], Mu_Smoother[k])
 
@@ -88,7 +89,17 @@ class GraphEMforA(KalmanClass):
         C /= T
         D /= T
 
-        return {"Sigma": Sigma, "Phi": Phi, "B": B, "C": C, "D": D, "EX Smoother": Mu_Smoother, "P Smoother": Ps_Smoother}
+        results = {
+            "Sigma": Sigma, 
+            "Phi": Phi, 
+            "B": B, 
+            "C": C, 
+            "D": D, 
+            "EX Smoother": Mu_Smoother, 
+            "P Smoother": Ps_Smoother,
+        }
+
+        return results
     
     def Douglas_Rachford(self, A=None, gamma=None, Sigma=None, Phi=None, C=None, T=None, Q=None, xi=None):
 
@@ -172,6 +183,8 @@ class GraphEMforA(KalmanClass):
 
     def parameter_estimation(self, Y=None, num_iteration=100, gamma=0.001, eps=1e-5, xi=1e-5):
 
+        print(f"GraphEM with {self.reg_name}")
+
         if Y is None:
             Y = self.Y # use build-in data if not assigned values to Y
 
@@ -183,23 +196,21 @@ class GraphEMforA(KalmanClass):
 
         self.theta = "A" # make sure to use self.loglikelihood function
 
-        init_A = np.random.uniform(low=0., high=1., size=self.A.shape)
+        init_A = np.zeros_like(self.A)
+
+        for i in range(len(init_A)):
+            for j in range(len(init_A)):
+                init_A[i, j] = 0.1 ** abs(i - j)
 
         U, S, VT = np.linalg.svd(init_A)
         max_singular_value = np.max(S)
         coef = 0.99 / max_singular_value
         init_A = coef * init_A
 
-        done = 1
-
-        if not done:
-            U, S, VT = np.linalg.svd(init_A)
-            print(f"Singular Value Range: [{np.min(S)}, {np.max(S)}]")
-
         fnorm = np.linalg.norm(init_A - self.A, 'fro')
         loglikelihood = self.loglikelihood(theta=init_A, Y=Y)
 
-        print('A0:\n', init_A)
+        # print('A0:\n', init_A)
         # print("F-norm(A0, trueA)0:\n", fnorm)
         # print("Loglikelihood(A0)0:\n", -loglikelihood)
 
@@ -270,5 +281,12 @@ class GraphEMforA(KalmanClass):
         obj_norm_list.append(obj_norm)
         obj_list.append(obj_q + obj_norm)
 
-        # summary the results we get from algorithm
-        return {"A iterations": A_list, "Fnorm iterations": Fnorm_list, "Simple Q iterations": obj_list, "General Q iteratioins": None, "Loglikelihood iterations": loglikelihood_list}
+        results = {
+            "A iterations": A_list, 
+            "Fnorm iterations": Fnorm_list, 
+            "Simple Q iterations": obj_list, 
+            "General Q iteratioins": None, 
+            "Loglikelihood iterations": loglikelihood_list,
+        }
+
+        return results

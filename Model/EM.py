@@ -89,7 +89,13 @@ class EMParameterEstimationAll(KalmanClass):
 
         if self.theta == "A":
 
-            Theta = np.random.uniform(low=0., high=1., size=self.A.shape)
+            # Theta = np.random.uniform(low=0., high=1., size=self.A.shape)
+
+            Theta = np.zeros_like(self.A)
+
+            for i in range(len(Theta)):
+                for j in range(len(Theta)):
+                    Theta[i, j] = 0.1 ** abs(i - j)
 
             U, S, VT = np.linalg.svd(Theta)
             max_singular_value = np.max(S)
@@ -117,8 +123,8 @@ class EMParameterEstimationAll(KalmanClass):
             Theta = np.random.uniform(low=0., high=0.02, size=self.Sigma_r.shape)
             m = np.linalg.norm(Theta - self.Sigma_r, 'fro')
 
-        print('Theta0:', Theta)
-        print("metric0:", m)
+        # print('Theta0:', Theta)
+        # print("metric0:", m)
 
         Thetas = [Theta]
         metric = [m]
