@@ -65,11 +65,11 @@ for idx, reg in enumerate(["Laplace", "Gaussian", "Laplace_Gaussian"]):
     Neg_Loglikelihood_seq_list.append(Neg_Loglikelihood_list)
 
 # 2.1.1 text result
-print("True A:")
-print(A)
+print("True A (3r, 3c):")
+print(A[:3, :3])
 
-print("Ahat from EM (MLEM):")
-print(A_list_MLE[-1])
+print("Ahat from EM (3r, 3c):")
+print(A_list_MLE[-1][:3, :3])
 
 baseline = -model.loglikelihood(theta=A, Y=model.Y)
 
