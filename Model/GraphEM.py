@@ -6,10 +6,14 @@ import numpy as np
 
 class GraphEMforA(KalmanClass):
 
-    def __init__(self, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None, reg_name=None):
+    def __init__(self, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None, reg_name="Laplace"):
+
         """
-        This is for data generation part
+
+        Generate the build-in data
+
         """
+
         # set up true model params and get X, Y
         super().__init__(A, Sigma_q, H, Sigma_r, mu_0, P_0)
 
@@ -38,9 +42,13 @@ class GraphEMforA(KalmanClass):
         elif self.theta == "R":
             model.Sigma_r = Theta
         
-        model.Filter(Y=Y)
-        # return {'EX Smoother': self.Mu_Smoother, 'P Smoother': self.Ps_Smoother, 'G': self.Gs}
-        smoother_dict = model.Smoother(Y=Y)
+        model.Filter(Y=Y) # make sure the quantities are from build-in data
+        """
+        
+        return {'EX Smoother': self.Mu_Smoother, 'P Smoother': self.Ps_Smoother, 'G': self.Gs}
+        
+        """
+        smoother_dict = model.Smoother(Y=Y) # make sure the quantities are from build-in data
 
         Mu_Smoother = smoother_dict["EX Smoother"]
         Ps_Smoother = smoother_dict["P Smoother"]
@@ -83,7 +91,9 @@ class GraphEMforA(KalmanClass):
         return {"Sigma": Sigma, "Phi": Phi, "B": B, "C": C, "D": D, "EX Smoother": Mu_Smoother, "P Smoother": Ps_Smoother}
     
     def Douglas_Rachford(self, A=None, gamma=None, Sigma=None, Phi=None, C=None, T=None, Q=None, xi=None):
+
         """
+
         The core process from MATLAB with functions in funcs_GraphEM.py
 
         This is optimization method for dealing with some object function hard to optim directly
@@ -91,7 +101,9 @@ class GraphEMforA(KalmanClass):
         We dont need to explicitly compute Q(A, Ai)
 
         We simplify the question into computing PhiBCD... and do optim process directly
+
         """
+
         # unpakck the params and set up hyper params
         gamma = gamma
         Sigma = Sigma
@@ -159,29 +171,40 @@ class GraphEMforA(KalmanClass):
         return opt_A
 
     def parameter_estimation(self, Y=None, num_iteration=100, gamma=0.001, eps=1e-5, xi=1e-5):
-        """
-        Once we set up model, the only knowledge would only be observations and other model params
-        """
-        if Y is None:
-            Y = self.Y
 
-        # init A value
-        self.theta = "A"
+        if Y is None:
+            Y = self.Y # use build-in data if not assigned values to Y
+
+        """
+        
+        init A
+        
+        """
+
+        self.theta = "A" # make sure to use self.loglikelihood function
+
         init_A = np.random.uniform(low=0., high=1., size=self.A.shape)
+
+        U, S, VT = np.linalg.svd(init_A)
+        max_singular_value = np.max(S)
+        coef = 0.99 / max_singular_value
+        init_A = coef * init_A
+
+        done = 1
+
+        if not done:
+            U, S, VT = np.linalg.svd(init_A)
+            print(f"Singular Value Range: [{np.min(S)}, {np.max(S)}]")
+
         fnorm = np.linalg.norm(init_A - self.A, 'fro')
         loglikelihood = self.loglikelihood(theta=init_A, Y=Y)
 
         print('A0:\n', init_A)
-        print("F-norm(A0, trueA)0:\n", fnorm)
-        print("Loglikelihood(A0)0:\n", -loglikelihood)
+        # print("F-norm(A0, trueA)0:\n", fnorm)
+        # print("Loglikelihood(A0)0:\n", -loglikelihood)
 
         # model params
         A = init_A
-        # H = self.H
-        # Q = self.Sigma_q
-        # R = self.Sigma_r
-        # m0 = self.mu_0
-        # P0 = self.P_0
 
         # set up hyperparams
         T = len(Y)

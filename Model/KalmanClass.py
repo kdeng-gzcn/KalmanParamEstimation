@@ -5,6 +5,7 @@ from pykalman import KalmanFilter
 from filterpy.kalman import KalmanFilter as KFfilterpy
 
 class LinearGaussianDataGenerator:
+
     def __init__(self, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None):
 
         if A is None:
@@ -89,12 +90,10 @@ class KalmanClass(LinearGaussianDataGenerator):
     """
 
     def __init__(self, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None) -> None:
-        """
-        we already have build-in X and Y
-        """
+
         super().__init__(A, Sigma_q, H, Sigma_r, mu_0, P_0) # use default value
 
-        # KF
+        # KF from pykalman for loglikelihood part
         self.kf = KalmanFilter(
             transition_matrices=self.A,
             transition_covariance=self.Sigma_q,
@@ -104,7 +103,7 @@ class KalmanClass(LinearGaussianDataGenerator):
             initial_state_covariance=self.P_0
         )
 
-        # KF from filterpy
+        # KF from filterpy for filter step
         self.kf2 = KFfilterpy(dim_x=len(self.A), dim_z=len(self.H))
         self.kf2.x = self.mu_0
         self.kf2.F = self.A
@@ -114,11 +113,14 @@ class KalmanClass(LinearGaussianDataGenerator):
         self.kf2.P = self.P_0
     
     def Filter(self, Y=None):
+
         """
+
         This function is to complete the Filter in detail.
         Create the collections of midterm quantity during Filter.
 
         We use `filterpy` here because it provides Prediction and Update step.
+
         """
 
         # Use build-in data
@@ -179,9 +181,13 @@ class KalmanClass(LinearGaussianDataGenerator):
         return {'EX': self.Mu, 'Y': Y, 'P': self.Ps, 'M-': self.Mu_minus, 'P-': self.Ps_minus, 'V': self.V, 'S': self.Ss, 'K': self.Ks}
     
     def Smoother(self, Y=None, Mu=None, Ps=None, Mu_minus=None, Ps_minus=None):
+
         """
+
         This function is to complete the Smoother given measurement and corredponding Filter quantities.
+
         """
+        
         try:
             # Use build-in data
             if Y is None:
@@ -223,9 +229,6 @@ class KalmanClass(LinearGaussianDataGenerator):
             print(e, "\n", "If Some Values Missing, Try to Call Filter() First.")
 
     def loglikelihood(self, theta=None, Y=None):
-        """
-        When Plot or Numerical Method
-        """
 
         # Use build-in data
         if Y is None:
@@ -248,7 +251,9 @@ class KalmanClass(LinearGaussianDataGenerator):
         return self.kf.loglikelihood(Y)
     
     def data_for_plot_loglikelihood(self, theta_name=None, xlim=(0, 2), num=100, Y=None):
+
         """
+
         This works only with A is dim1
         args:
             xlim: (a, b), the lower b and upper b of the function
@@ -257,7 +262,9 @@ class KalmanClass(LinearGaussianDataGenerator):
         returns:
             As: the range for plot
             ells: (num,)    
+
         """
+
         if Y is None:
             Y = self.Y
 
@@ -494,329 +501,6 @@ class EMParameterEstimationA(KalmanClass):
             metric.append(m)
 
         return A, As, metric
-
-class GradientParameterEstimationAll(KalmanClass):
-    def __init__(self, var: str, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None) -> None:
-        super().__init__(A, Sigma_q, H, Sigma_r, mu_0, P_0) # use default value
-
-        # extract theta from vars
-        self.theta = var
-
-    def gradient_ell_k(self, y, A, H, Q, R, mu, P):
-        """
-        This func uses torch pkg for computing gradient.
-
-        backword()
-
-        Args:
-            y: numpy array, the observation vector
-            A: scalar (numpy), the variable with respect to which gradient will be computed
-            mu_k-1: numpy array, prior mean
-            P_k-1: 
-            H: numpy array, transformation matrix
-            Q: numpy array, process noise covariance
-            R: numpy array, measurement noise covariance
-        Returns:
-            d ell_k: scalar since A is scalar
-        """
-
-        # to Tensor()
-        # Convert inputs to torch tensors
-        y = torch.tensor(y, dtype=torch.float32)
-
-        A = torch.tensor(A, dtype=torch.float32)
-        H = torch.tensor(H, dtype=torch.float32)
-        mu = torch.tensor(mu, dtype=torch.float32)
-        P = torch.tensor(P, dtype=torch.float32)
-        Q = torch.tensor(Q, dtype=torch.float32)
-        R = torch.tensor(R, dtype=torch.float32)
-
-        # Ensure Theta is a torch tensor with gradient tracking
-        if self.theta == "A":
-            A.requires_grad = True
-        elif self.theta == "H":
-            H.requires_grad = True
-        elif self.theta == "mu":
-            mu.requires_grad = True
-        elif self.theta == "P":
-            P.requires_grad = True
-        elif self.theta == "Q":
-            Q.requires_grad = True
-        elif self.theta == "R":
-            R.requires_grad = True
-
-        # Function to compute mu and Sigma
-        def compute_mu_sigma():
-            mean = H @ A @ mu
-            Sigma = H @ A @ P @ A.T @ H.T + H @ Q @ H.T + R
-            return mean, Sigma
-
-        # Compute mu and Sigma
-        mean, Sigma = compute_mu_sigma()
-
-        mvn = torch.distributions.MultivariateNormal(mean, Sigma)
-
-        # Compute f(mu, Sigma)
-        f = mvn.log_prob(y)
-
-        # Perform backward pass to compute gradients
-        f.backward()
-
-        # Extract the gradient with respect to A
-        if self.theta == "A":
-            gradient = A.grad
-        elif self.theta == "H":
-            gradient = H.grad
-        elif self.theta == "mu":
-            gradient =mu.grad
-        elif self.theta == "P":
-            gradient = P.grad
-        elif self.theta == "Q":
-            gradient = Q.grad
-        elif self.theta == "R":
-            gradient =R.grad
-
-        # Return the gradient as a numpy scalar
-        return gradient.cpu().numpy()
-    
-    def gradient_ell(self, Theta, Y=None):
-
-        if Y is None:
-            Y = self.Y
-
-        # in each step k, use Filter in KalmanClass
-        model = KalmanClass(A=self.A, Sigma_q=self.Sigma_q, H=self.H, 
-                                    Sigma_r=self.Sigma_r, mu_0=self.mu_0, P_0=self.P_0)
-        
-        if self.theta == "A":
-            model.A = Theta
-        elif self.theta == "H":
-            model.H = Theta
-        elif self.theta == "mu":
-            model.mu_0 = Theta
-        elif self.theta == "P":
-            model.P_0 = Theta
-        elif self.theta == "Q":
-            model.Sigma_q = Theta
-        elif self.theta == "R":
-            model.Sigma_r = Theta
-
-        # return {'EX': self.Mu, 'Y': Y, 'P': self.Ps, 'M-': self.Mu_minus, 'P-': self.Ps_minus, 'V': self.V, 'S': self.Ss, 'K': self.Ks}
-        result_dict = model.Filter(Y=Y)
-
-        gradient_ell = []
-        
-        for idx, y in enumerate(Y):
-            
-            d_ell_k = self.gradient_ell_k(y, model.A, model.H, model.Sigma_q, model.Sigma_r, result_dict['EX'][idx], result_dict['P'][idx])
-
-            gradient_ell.append(d_ell_k)
-
-        gradient_ell = np.stack(gradient_ell, axis=0).sum(axis=0)
-
-        return gradient_ell
-    
-    def parameter_estimation(self, alpha, Y=None, num_iteration=10):
-
-        if Y is None:
-            Y = self.Y
-
-        if self.theta == "A":
-            Theta = np.random.uniform(low=0., high=1., size=self.A.shape)
-            m = np.linalg.norm(Theta - self.A, 'fro')
-        elif self.theta == "H":
-            Theta = np.random.uniform(low=0., high=1., size=self.H.shape)
-            m = np.linalg.norm(Theta - self.H, 'fro')
-        elif self.theta == "mu":
-            Theta = np.random.normal(loc=0., scale=1., size=self.mu_0.shape)
-            m = np.linalg.norm(Theta - self.mu_0, 2)
-        elif self.theta == "P":
-            Theta = np.random.uniform(low=0., high=0.02, size=self.P_0.shape)
-            m = np.linalg.norm(Theta - self.P_0, 'fro')
-        elif self.theta == "Q":
-            Theta = np.random.uniform(low=0., high=0.02, size=self.Sigma_q.shape)
-            m = np.linalg.norm(Theta - self.Sigma_q, 'fro')
-        elif self.theta == "R":
-            Theta = np.random.uniform(low=0., high=0.02, size=self.Sigma_r.shape)
-            m = np.linalg.norm(Theta - self.Sigma_r, 'fro')
-
-        print('Theta0:', Theta)
-        print("metric0:", m)
-
-        Thetas = [Theta]
-        metric = [m]
-
-        for _ in range(num_iteration):
-                
-            print("Gradient of ell:", self.gradient_ell(Theta, Y))
-            Theta = Theta + alpha * self.gradient_ell(Theta, Y)
-
-            if self.theta == "A":
-                m = np.linalg.norm(Theta-self.A, 'fro')
-            elif self.theta == "H": 
-                m = np.linalg.norm(Theta-self.H, 'fro')
-            elif self.theta == "mu":
-                m = np.linalg.norm(Theta-self.mu_0, 2)
-            elif self.theta == "P":
-                m = np.linalg.norm(Theta-self.P_0, 'fro')
-            elif self.theta == "Q":
-                m = np.linalg.norm(Theta-self.Sigma_q, 'fro')
-            elif self.theta == "R":
-                m = np.linalg.norm(Theta-self.Sigma_r, 'fro')
-
-            Thetas.append(Theta)
-            metric.append(m)
-
-        return Theta, Thetas, metric
-    
-class EMParameterEstimationAll(KalmanClass):
-    """
-    High-Level Usage: input Y and output a fitted model. Remember we have build-in data for evaluation.
-
-    To compute the conclusions from EM Algorithm, we need to use quantities from Filter and Smoother part.
-    """
-
-    def __init__(self, var: str, A=None, Sigma_q=None, H=None, Sigma_r=None, mu_0=None, P_0=None) -> None:
-        super().__init__(A, Sigma_q, H, Sigma_r, mu_0, P_0) # use default value
-
-        self.theta = var
-
-    def quantities_from_Q(self, Theta, Y=None):
-
-        if Y is None:
-            Y = self.Y
-
-        model = KalmanClass(A=self.A, Sigma_q=self.Sigma_q, H=self.H, 
-                                    Sigma_r=self.Sigma_r, mu_0=self.mu_0, P_0=self.P_0)
-        
-        if self.theta == "A":
-            model.A = Theta
-        elif self.theta == "H":
-            model.H = Theta
-        elif self.theta == "mu":
-            model.mu_0 = Theta
-        elif self.theta == "P":
-            model.P_0 = Theta
-        elif self.theta == "Q":
-            model.Sigma_q = Theta
-        elif self.theta == "R":
-            model.Sigma_r = Theta
-        
-        model.Filter(Y=Y)
-        # return {'EX Smoother': self.Mu_Smoother, 'P Smoother': self.Ps_Smoother, 'G': self.Gs}
-        smoother_dict = model.Smoother(Y=Y)
-
-        Mu_Smoother = smoother_dict["EX Smoother"]
-        Ps_Smoother = smoother_dict["P Smoother"]
-        Gs = smoother_dict["G"]
-
-        T = len(Y)
-
-        # idx = range(1, 51)
-
-        # init
-        Sigma = np.zeros_like(Ps_Smoother[0])
-        Phi = np.zeros_like(Ps_Smoother[0])
-        B = np.zeros((Y[0].shape[0], Mu_Smoother[0].shape[0]))
-        C = np.zeros_like(Ps_Smoother[0])
-        D = np.zeros((Y[0].shape[0], Y[0].shape[0]))
-
-        for k in range(1, T+1):
-            # Sigma: Σ = (1/T) * Σ_{k=1}^{T} (P_s^k + m_s^k * (m_s^k)^T)
-            Sigma += Ps_Smoother[k] + np.outer(Mu_Smoother[k], Mu_Smoother[k])
-
-            # Phi: Φ = (1/T) * Σ_{k=1}^{T} (P_s^{k-1} + m_s^{k-1} * (m_s^{k-1})^T)
-            Phi += Ps_Smoother[k-1] + np.outer(Mu_Smoother[k-1], Mu_Smoother[k-1])
-
-            # B: B = (1/T) * Σ_{k=1}^{T} (y_k * (m_s^k)^T)
-            B += np.outer(Y[k-1], Mu_Smoother[k])
-
-            # C: C = (1/T) * Σ_{k=1}^{T} (P_s^{k-1} G^T_k + m_s^k * (m_s^{k-1})^T)
-            C += Ps_Smoother[k] @ Gs[k-1].T + np.outer(Mu_Smoother[k], Mu_Smoother[k-1])
-
-            # D: D = (1/T) * Σ_{k=1}^{T} (y_k * y_k^T)
-            D += np.outer(Y[k-1], Y[k-1])
-
-        #
-        Sigma /= T
-        Phi /= T
-        B /= T
-        C /= T
-        D /= T
-
-        return {"Sigma": Sigma, "Phi": Phi, "B": B, "C": C, "D": D, "EX Smoother": Mu_Smoother, "P Smoother": Ps_Smoother}
-
-    def parameter_estimation(self, Y=None, num_iteration=10):
-
-        if Y is None:
-            Y = self.Y
-
-        if self.theta == "A":
-            Theta = np.random.uniform(low=0., high=1., size=self.A.shape)
-            m = np.linalg.norm(Theta - self.A, 'fro')
-            loglike = self.loglikelihood(theta=Theta, Y=Y)
-        elif self.theta == "H":
-            Theta = np.random.uniform(low=0., high=1., size=self.H.shape)
-            m = np.linalg.norm(Theta - self.H, 'fro')
-        elif self.theta == "mu":
-            Theta = np.random.normal(loc=0., scale=1., size=self.mu_0.shape)
-            m = np.linalg.norm(Theta - self.mu_0, 2)
-        elif self.theta == "P":
-            Theta = np.random.uniform(low=0., high=0.02, size=self.P_0.shape)
-            m = np.linalg.norm(Theta - self.P_0, 'fro')
-        elif self.theta == "Q":
-            Theta = np.random.uniform(low=0., high=0.5, size=self.Sigma_q.shape)
-            Theta = Theta @ Theta.T # symmetric Cov Mat
-            m = np.linalg.norm(Theta - self.Sigma_q, 'fro')
-            loglike = self.loglikelihood(theta=Theta, Y=Y)
-        elif self.theta == "R":
-            Theta = np.random.uniform(low=0., high=0.02, size=self.Sigma_r.shape)
-            m = np.linalg.norm(Theta - self.Sigma_r, 'fro')
-
-        print('Theta0:', Theta)
-        print("metric0:", m)
-
-        Thetas = [Theta]
-        metric = [m]
-        neg_loglikelihood_list = [-loglike]
-
-        for _ in range(num_iteration):
-
-            result = self.quantities_from_Q(Theta=Theta, Y=Y)
-            
-            if self.theta == "A":
-                # update A = C Phi-1
-                Theta = result["C"] @ np.linalg.inv(result["Phi"])
-                m = np.linalg.norm(Theta-self.A, 'fro')
-                loglike = self.loglikelihood(theta=Theta, Y=Y)
-            elif self.theta == "H":
-                # H = B Simga-1
-                Theta = result["B"] @ np.linalg.inv(result["Sigma"])
-                m = np.linalg.norm(Theta-self.H, 'fro')
-            elif self.theta == "mu":
-                # m = m_0_Smoother
-                Theta = result["EX Smoother"][0]
-                m = np.linalg.norm(Theta-self.mu_0, 2)
-            elif self.theta == "P":
-                # P = P_0_Smoother + (m_0_Smoother - m_0)(m_0_Smoother - m_0)^T
-                Theta = result["P Smoother"][0] + (result["EX Smoother"][0] - self.mu_0) @ (result["EX Smoother"][0] - self.mu_0).T
-                m = np.linalg.norm(Theta-self.P_0, 'fro')
-            elif self.theta == "Q":
-                # Q = Sigma - C A^T - A C^T + A Phi A^T 
-                Theta = result["Sigma"] - result["C"] @ self.A.T - self.A @ result["C"].T + self.A @ result["Phi"] @ self.A.T
-                m = np.linalg.norm(Theta-self.Sigma_q, 'fro')
-            elif self.theta == "R":
-                # R = D - H B^T - B H^T + H Sigma H^T
-                Theta = result["D"] - self.H @ result["B"].T - result["B"] @ self.H.T + self.H @ result["Sigma"] @ self.H.T
-                m = np.linalg.norm(Theta-self.Sigma_r, 'fro')
-
-            Thetas.append(Theta)
-            metric.append(m)
-            neg_loglikelihood_list.append(-loglike)
-
-        fnorm_list = metric
-
-        return Theta, Thetas, fnorm_list, neg_loglikelihood_list
 
 if __name__ == "__main__":
     # # use build-in data
