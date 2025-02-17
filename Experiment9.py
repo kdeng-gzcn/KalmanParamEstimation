@@ -7,13 +7,13 @@ For each type, we find the most suitable prior for it.
 """
 
 # 0. import pkg
+from src.GraphEM import GraphEMforA
+from src.EM import EMParameterEstimation
+
 import numpy as np
 import os
 from matplotlib import pyplot as plt
 import networkx as nx
-
-from Model.GraphEM import GraphEMforA
-from Model.EM import EMParameterEstimationAll
 
 seed = np.random.seed(0)
 
@@ -33,7 +33,7 @@ P0 = np.load(os.path.join(root, "P0.npy"))
 dimx = len(A)
 
 # 1.2 load model
-model_MLE = EMParameterEstimationAll(var="A", A=A, Sigma_q=Q, H=H, Sigma_r=R, mu_0=m0, P_0=P0)
+model_MLE = EMParameterEstimation(var="A", A=A, Sigma_q=Q, H=H, Sigma_r=R, mu_0=m0, P_0=P0)
 model_list = []
 for reg in ["Laplace", "Gaussian", "Laplace_Gaussian"]:
     model = GraphEMforA(A=A, Sigma_q=Q, H=H, Sigma_r=R, mu_0=m0, P_0=P0, reg_name=reg)
