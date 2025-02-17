@@ -6,10 +6,6 @@ This module is for functions in GraphEM
 
 import numpy as np
 
-def loglikelihood_multi_normal():
-
-    pass
-
 """
 
 q + reg == approx of loglikelihood (lower bound)
@@ -149,3 +145,6 @@ def opt_wrt_L1_Gaussian_Prior(gamma=None, A=None):
 #     Aprox = np.sign(Q) * np.maximum(0, np.abs(Q) - temp)
 #     return Aprox
 
+if __name__ == "__main__":
+    
+    pass
