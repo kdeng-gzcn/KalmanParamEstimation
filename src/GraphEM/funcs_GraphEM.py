@@ -1,46 +1,29 @@
-"""
-
-This module is for functions in GraphEM
-
-"""
-
 import numpy as np
+import scipy.linalg as la
 
 """
 
-q + reg == approx of loglikelihood (lower bound)
+Q(A, An) = -T / 2 * trace(Q^(-1) * (Sigma - C @ A.T - A @ C.T + A @ Phi @ A.T))
 
 """
 
-def q_wrt_A(Q=None, A=None, Sigma=None, Phi=None, C=None, T=None):
-    """
-    q is actually -q
-    we use this to get minimum, hence it's -q
-    """
-    K = T
-    sigma_Q = np.diag(Q)[0]
-    D1 = A
-    q = K / 2 * np.trace((1 / sigma_Q**2) * (Sigma - np.dot(C, D1.T) - np.dot(D1, C.T) + np.dot(np.dot(D1, Phi), D1.T)))
+def q_wrt_A_given_An(Q=None, A=None, Sigma=None, Phi=None, C=None, T=None):
+
+    # sigma_Q = np.diag(Q)[0]
+    Q_inv = np.linalg.inv(Q)
+
+    # q = K / 2 * np.trace((1 / sigma_Q**2) * (Sigma - C @ D1.T - D1 @ C.T + D1 @ Phi @ D1.T))
+    q = -T / 2 * np.trace(Q_inv @ (Sigma - C @ A.T - A @ C.T + A @ Phi @ A.T))
+    
     return q
 
-# def q_wrt_Q(Q=None, A=None, Sigma=None, Phi=None, C=None, T=None):
-#     """
-#     q is actually -q
-#     we use this to get minimum, hence it's -q
-#     """
-#     K = T
-#     sigma_Q = np.diag(Q)[0]
-#     D1 = A
-#     q = K / 2 * np.trace((1 / sigma_Q**2) * (Sigma - np.dot(C, D1.T) - np.dot(D1, C.T) + np.dot(np.dot(D1, Phi), D1.T)))
-#     return q
+"""
+
+Prox Q at Ai == argmin_A Q(A, Ai)
 
 """
 
-Prox q at A == argmin_A q
-
-"""
-
-def opt_wrt_q(A=None, C=None, Phi=None, Q=None, T=None):
+def prox_gamma_minus_Q_wrt_Ai(**kwargs):
     """
     again, set gamma as 1
 
@@ -48,11 +31,26 @@ def opt_wrt_q(A=None, C=None, Phi=None, Q=None, T=None):
 
     prox q at A
     """
-    K = T
-    sigma_Q = np.diag(Q)[0]
-    temp = 1 * K / (sigma_Q ** 2)
-    Aprox = np.dot((temp * C + A), np.linalg.inv(Phi * temp + np.eye(Phi.shape[0])))
-    return Aprox
+
+    A = kwargs.get("A", None)
+    C = kwargs.get("C", None)
+    Phi = kwargs.get("Phi", None)
+    Q_Cov = kwargs.get("Q", None)
+    gamma = kwargs.get("gamma", None)
+    T = kwargs.get("T", None)
+
+    sigma_Q_sq = np.diag(Q_Cov)[0]
+    coef = T * gamma / sigma_Q_sq
+
+    argmin_A = (coef * C + A) @ np.linalg.inv(coef * Phi + np.eye(Phi.shape[0]))
+
+    # X = gamma * np.linalg.inv(Q_Cov)
+    # Y = np.linalg.inv(Phi)
+    # Z = A @ np.linalg.inv(Phi) + gamma * np.linalg.inv(Q_Cov) @ C @ np.linalg.inv(Phi)
+
+    # argmin_A = la.solve_continuous_lyapunov(X, Z - Y @ X)  # X * A + A * Y = Z
+
+    return argmin_A
 
 """
 
@@ -60,36 +58,24 @@ Regular Term
 
 """
 
-def L1_wrt_A(A=None, gamma=None):
-    """
-    gamma is from norm in obj
-    """
-    Reg1 = gamma * np.sum(np.abs(A))  # L1 norm case
+def L1_wrt_A(A=None):
+    Reg1 = np.sum(np.abs(A))  # L1 norm case
+
     return Reg1
 
-# def L1_wrt_Q(Q=None, gamma=None):
-#     """
-#     gamma is from norm in obj
-#     """
-#     Reg1 = gamma * np.sum(np.abs(Q))  # L1 norm case
-#     return Reg1
-
-def Gaussian_Prior_wrt_A(A=None, gamma=None):
+def Gaussian_Prior_wrt_A(A=None):
     """
-    gamma is from norm in obj
-
     gaussian prior is 1/2 || ||F
     """
-    Reg1 = gamma * 1/2 * np.linalg.norm(A, 'fro')  # L1 norm + Gaussian case
+    Reg1 = 1/2 * np.linalg.norm(A, 'fro')  # L1 norm + Gaussian case
+
     return Reg1
 
-def Block_L1_wrt_A(A=None, gamma=None):
-
+def Block_L1_wrt_A(A=None):
     pass
 
-def L1_Gaussian_Prior_wrt_A(A=None, gamma=None):
-
-    reg_value =  gamma * (np.sum(np.abs(A)) + 1/2 * np.linalg.norm(A, 'fro'))
+def L1_plus_Gaussian_Prior_wrt_A(A=None):
+    reg_value = (np.sum(np.abs(A)) + 1/2 * np.linalg.norm(A, 'fro'))
 
     return reg_value
 
@@ -99,7 +85,7 @@ Prox Regular Term at A == argmin_A L
 
 """
 
-def opt_wrt_L1(gamma=None, A=None):
+def prox_gamma_L1_wrt_Ai(gamma=None, A=None):
     '''
     set gamma for norm inside optim method as 1
 
@@ -107,11 +93,11 @@ def opt_wrt_L1(gamma=None, A=None):
 
     prox L1 at A
     '''
-    temp = 1 * gamma
-    Aprox = np.sign(A) * np.maximum(0, np.abs(A) - temp)
+    Aprox = np.sign(A) * np.maximum(0, np.abs(A) - gamma)
+
     return Aprox
 
-def opt_wrt_Gaussian_Prior(gamma=None, A=None):
+def prox_gamma_L2_wrt_Ai(gamma=None, A=None):
 
     argmin = A / (1 + gamma)
 
@@ -121,7 +107,7 @@ def opt_wrt_Block_L1(A=None, gamma=None):
 
     pass
 
-def opt_wrt_L1_Gaussian_Prior(gamma=None, A=None):
+def prox_gamma_L1_plus_L2_wrt_Ai(gamma=None, A=None):
 
     '''
 
@@ -135,15 +121,38 @@ def opt_wrt_L1_Gaussian_Prior(gamma=None, A=None):
 
     return argmin
 
-# def opt_wrt_L1_given_Q(gamma=None, Q=None):
-#     '''
-#     set gamma for norm inside optim method as 1
 
-#     note that arg gamma is for norm in obj function
-#     '''
-#     temp = 1 * gamma
-#     Aprox = np.sign(Q) * np.maximum(0, np.abs(Q) - temp)
-#     return Aprox
+"""
+
+High level function for object GraphEM Q
+
+"""
+
+def Q_wrt_A_given_An(**kwargs):
+
+    REG_TERM = {
+        "Laplace": L1_wrt_A,
+        "Gaussian": Gaussian_Prior_wrt_A,
+        "Block Laplace": Block_L1_wrt_A,
+        "Laplace+Gaussian": L1_plus_Gaussian_Prior_wrt_A,
+    }
+
+    REG_TYPE = kwargs.get("reg_type", "Laplace")
+    A = kwargs.get("A", None)
+    Q_COV = kwargs.get("Q", None)
+    SIGMA = kwargs.get("Sigma", None)
+    PHI = kwargs.get("Phi", None)
+    C = kwargs.get("C", None)
+    T = kwargs.get("T", None)
+    LAMBDA = kwargs.get("lambda", None)
+
+    q = q_wrt_A_given_An(Q=Q_COV, A=A, Sigma=SIGMA, Phi=PHI, C=C, T=T) 
+    reg_term = REG_TERM[REG_TYPE](A=A) 
+
+    Q_OBJ = - q + LAMBDA * (reg_term)
+
+    return Q_OBJ
+
 
 if __name__ == "__main__":
     

@@ -1,10 +1,14 @@
+# for local import
 import sys
 sys.path.append("")
+
 from typing import List
+import logging
 
 import numpy as np
 
 from src.KalmanProcess import KalmanProcess
+from src.logging.logging_config import setup_logging
 
 class EMParameterEstimation(KalmanProcess):
 
@@ -17,6 +21,9 @@ class EMParameterEstimation(KalmanProcess):
     """
 
     def __init__(self, **kwargs):
+
+        # setup_logging()
+        self.logger = logging.getLogger(__name__)
 
         super().__init__(**kwargs)
 
@@ -37,7 +44,7 @@ class EMParameterEstimation(KalmanProcess):
 
         for var in missing_vars:
 
-            print(f"Estimating Missing Value: {var}")
+            self.logger.info(f"Estimating Missing Value: {var}")
 
             Theta = np.zeros_like(mapping[var])
 
@@ -58,9 +65,9 @@ class EMParameterEstimation(KalmanProcess):
 
             loglike = self.loglikelihood(Y=Y, **temp)
 
-            Results[f"{var} 0:{num_iteration}"] = [Theta]
-            Results[f"||{var} - {var}_true||F 0:{num_iteration}"] = [fnorm]
-            Results[f"-ell({var}|Y, {var}_true) 0:{num_iteration}"] = [-loglike]
+            Results[f"{var} 0:{num_iteration}"] = [Theta] # estimation
+            Results[f"||{var} - {var}_true||F 0:{num_iteration}"] = [fnorm] # metric1
+            Results[f"-ell({var}|Y, {var}_true) 0:{num_iteration}"] = [-loglike] # metric2
 
             for _ in range(num_iteration):
 
@@ -109,7 +116,7 @@ if __name__ == "__main__":
         "H": np.eye(dim_x),
         "R": np.eye(dim_x) * 0.01,
         "m0": np.zeros(dim_x),
-        "P0": np.eye(dim_x) * 0.01,
+        "P0": np.eye(dim_x) * 0.0001,
     }
 
     ssm = LinearGaussianDataGenerator(**ModelParams)
@@ -117,7 +124,7 @@ if __name__ == "__main__":
     Y = ssm.Y
 
     alg = EMParameterEstimation(**ModelParams)
-    missing_vars = ["A", "H"]
+    missing_vars = ["A"]
     results = alg.parameter_estimation(missing_vars=missing_vars, Y=Y)
 
     for var in missing_vars:

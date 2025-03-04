@@ -1,10 +1,10 @@
-import numpy as np
+# for local import
+# import sys
+# sys.path.append("")
 
+import numpy as np
 from pykalman import KalmanFilter as KFpykalman
 from filterpy.kalman import KalmanFilter as KFfilterpy
-
-import sys
-sys.path.append("")
 
 from src.DataGenerator import LinearGaussianDataGenerator
 
