@@ -4,7 +4,7 @@
 
 ### GraphEM
 
-~~~
+~~~python
 import numpy as np
 from src.KalmanProcess import KalmanProcess
 from src.GraphEM import GraphEMforA
@@ -45,7 +45,7 @@ print(f"A -ell: {results['A NegLoglikelihood'][-1]}")
 
 ### Kalman Filter and Smoother
 
-~~~
+~~~python
 import numpy as np
 from src.DataGenerator import LinearGaussianDataGenerator
 from src.KalmanProcess import KalmanProcess
@@ -99,7 +99,7 @@ ell = model.loglikelihood(Y=data["Y 1:T"])
 
 ### EM Algorithm
 
-~~~
+~~~python
 import numpy as np
 from src.KalmanProcess import LinearGaussianDataGenerator
 from src.EM import EMParameterEstimation
