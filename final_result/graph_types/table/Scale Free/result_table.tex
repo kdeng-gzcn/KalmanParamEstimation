@@ -1,0 +1,14 @@
+\begin{table}[tb]
+\caption{Result for blockwise-diagonal graph with different regularizations.}
+\label{tab: prior results for block-diag}
+\begin{tabular}{llll}
+\toprule
+\textbf{Graph Type} & \textbf{Method} & \textbf{$\mathcal{L}_T(\widehat{\mathbf{A}})$} & \textbf{$\| \widehat{\mathbf{A}} - \mathbf{A} \|_F$} \\
+\midrule
+Scale Free & EM & -2244.592 & 2.330 \\
+ & GraphEM Laplace & -2205.752 & 2.133 \\
+ & GraphEM Gaussian & -2242.827 & 2.280 \\
+ & GraphEM Laplace+Gaussian & -2203.690 & 2.086 \\
+\bottomrule
+\end{tabular}
+\end{table}
