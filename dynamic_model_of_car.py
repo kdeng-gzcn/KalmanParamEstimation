@@ -2,6 +2,7 @@ import logging
 import os
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import networkx as nx
 
@@ -85,7 +86,7 @@ SMOOTHER_X_AXIS = _[1:, 0]
 SMOOTHER_Y_AXIS = _[1:, 1]
 
 # Plot
-fig, axs = plt.subplots(2, 2, figsize=(10, 10))
+fig, axs = plt.subplots(2, 2, figsize=(8, 4))
 fig.suptitle(f'$T={len(Y)}, \Delta t={dt}, q_1^c = {q1_c}, q_2^c = {q2_c}, v_0^x = {v0_x}, v_0^y = {v0_y}$')
 
 # Plot the true trajectory
@@ -127,6 +128,9 @@ plt.savefig(CAR_MODEL_FIG_PATH)
 logger.info(f"Saved the plot to {CAR_MODEL_FIG_PATH}")
 
 # 5. Fit the estimation model to the data with missing values
+
+logger.info(f"The negative loglikelihood value for the ground truth is {-CAR_MODEL.loglikelihood(Y=Y, **MODEL_PARAMS)}")
+
 NEG_LOG_LIKELIHOOD = {
     "True": -CAR_MODEL.loglikelihood(Y=Y, **MODEL_PARAMS),
     "EM": None,
@@ -194,7 +198,7 @@ FNORM['EM'] = results["A Fnorm"][1:]
 # plt.tight_layout()
 
 # Plot
-fig = plt.figure(figsize=(10, 5))
+fig = plt.figure(figsize=(8, 2))
 
 # Plot neg log likelihood + Fnorm
 
@@ -221,12 +225,12 @@ logger.info(f"Saved the plot to {NEG_LOG_LIKELIHOOD_FIG_PATH}")
 
 for plot_var in ["A", "H", "Q", "R"]:
     # Plot
-    fig = plt.figure(figsize=(10, 5))
+    fig = plt.figure(figsize=(8, 2))
 
     # Plot neg log likelihood + Fnorm
 
     ax1 = fig.add_subplot(1, 2, 1)
-    ax1.plot(results[f'{plot_var} NegLoglikelihood'][1:], label='EM', color='#ffbe0b')
+    ax1.plot(results[f'{plot_var} NegLoglikelihood'][3:], label='EM', color='#ffbe0b')
     ax1.axhline(y=NEG_LOG_LIKELIHOOD["True"], color='r', linestyle='--', label='True')
     ax1.set_xlabel('Iteration')
     ax1.set_ylabel('NegLogLikelihood')
@@ -300,7 +304,8 @@ def draw_weighted_directed_graph(adj_matrix, seed, position=None, node_size=50, 
     return position
 
 # plt.style.use('default')
-fig = plt.figure(figsize=(8, 4))
+figsize = (5, 2)
+fig = plt.figure(figsize=figsize)
 # fig.suptitle(f"{graph} graphic results with different reg terms", fontsize=16)
 
 plt.subplot(1, 2, 1)
@@ -320,7 +325,7 @@ print(np.round(TRANSITION_MATRIX["EM"], 3))
 
 for plot_var in ["A", "H", "Q", "R"]:
     # Plot
-    fig = plt.figure(figsize=(8, 4))
+    fig = plt.figure(figsize=figsize)
 
     plt.subplot(1, 2, 1)
     pos = draw_weighted_directed_graph(MODEL_PARAMS[plot_var], seed=seed, title=None)
@@ -334,3 +339,23 @@ for plot_var in ["A", "H", "Q", "R"]:
     plt.savefig(graph_path)
 
     logger.info(f"Saved the plot to {graph_path}")
+
+data = {
+    r"\textbf{Missing Var.}": ["$\mathbf{A}$", "$\mathbf{Q}$", "$\mathbf{H}$"],
+    r"\textbf{$\mathcal{L}_T(\widehat{\boldsymbol{\theta}})$}": [results[f"{theta} NegLoglikelihood"][-1] for theta in ["A", "Q", "H"]],
+    r"\textbf{$\| \widehat{\boldsymbol{\theta}} - \boldsymbol{\theta} \|_F$}": [results[f"{theta} Fnorm"][-1] for theta in ["A", "Q", "H"]],
+}
+
+TABLE_PATH = f"final_result/dynamic_model_of_car/table/result_table.tex"
+os.makedirs(os.path.dirname(TABLE_PATH), exist_ok=True)
+pd.DataFrame(data).to_latex(
+    TABLE_PATH,
+    index=False,
+    float_format="%.3f",
+    column_format="l" * len(data),
+    position="tb",
+    caption="EM results for car model.",
+    label="tab: EM results",
+)
+
+logger.info(f"table saved to {TABLE_PATH}")
