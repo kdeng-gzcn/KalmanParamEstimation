@@ -149,7 +149,7 @@ def Q_wrt_A_given_An(**kwargs):
     q = q_wrt_A_given_An(Q=Q_COV, A=A, Sigma=SIGMA, Phi=PHI, C=C, T=T) 
     reg_term = REG_TERM[REG_TYPE](A=A) 
 
-    Q_OBJ = - q + LAMBDA * (reg_term)
+    Q_OBJ = - q + (LAMBDA * reg_term)
 
     return Q_OBJ
 

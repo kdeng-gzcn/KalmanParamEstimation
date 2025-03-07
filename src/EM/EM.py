@@ -44,7 +44,7 @@ class EMParameterEstimation(KalmanProcess):
 
         for var in missing_vars:
 
-            self.logger.info(f"Estimating Missing Value: {var}")
+            self.logger.info(f"EM Estimating Missing Value: {var}")
 
             Theta = np.zeros_like(mapping[var])
 

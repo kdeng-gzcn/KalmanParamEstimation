@@ -46,7 +46,14 @@ class GraphEMforA(KalmanProcess):
         Q_COV = kwargs.get("Q")
         XI = kwargs.get("xi")
 
-        NUM_ITERATION = 1000
+        NUM_ITERATION = 2000
+
+        REG_TERM = {
+        "Laplace": F.L1_wrt_A,
+        "Gaussian": F.Gaussian_Prior_wrt_A,
+        "Block Laplace": F.Block_L1_wrt_A,
+        "Laplace+Gaussian": F.L1_plus_Gaussian_Prior_wrt_A,
+        }
 
         Q_list = []
         neg_ell_list = []
@@ -68,8 +75,13 @@ class GraphEMforA(KalmanProcess):
         temp = self.ParamsDict
         temp["A"] = A_n
 
+        # self.logger.info("Before loglikelihood cal")
+
         loglikelihood = self.loglikelihood(Y=self.Y, **temp)
-        neg_ell_list.append(-loglikelihood)
+
+        # self.logger.info("After loglikelihood cal")
+
+        neg_ell_list.append(-loglikelihood + REG_TERM[REG_TYPE](A=A_n))
 
         A_i = A_n
         for idx_iteration in range(NUM_ITERATION): # add new stop condition
@@ -83,9 +95,9 @@ class GraphEMforA(KalmanProcess):
             }
             prox_f2_quantities = {
                 "A": A_i,
-                "gamma": GAMMA,
+                "gamma": GAMMA * LAMBDA,
             }
-            Y_i = prox_f2[REG_TYPE](A=A_i, gamma=GAMMA)
+            Y_i = prox_f2[REG_TYPE](A=A_i, gamma=GAMMA * LAMBDA)
 
             # note that here we use 2 * A - Y
             prox_f1 = F.prox_gamma_minus_Q_wrt_Ai
@@ -104,7 +116,7 @@ class GraphEMforA(KalmanProcess):
 
             obj_qunatities = {
                 "reg_type": REG_TYPE,
-                "A": A_i,
+                "A": Y_i, # change from A to Y
                 "Q": self.Q,
                 "Sigma": SIGMA,
                 "Phi": PHI,
@@ -117,10 +129,16 @@ class GraphEMforA(KalmanProcess):
             Q_list.append(obj_Q)
 
             temp = self.ParamsDict
-            temp["A"] = A_i
+            temp["A"] = Y_i # change from A to Y
+
+            # self.logger.info("Before loglikelihood cal")
 
             loglikelihood = self.loglikelihood(Y=self.Y, **temp)
-            neg_ell_list.append(-loglikelihood)
+
+            # self.logger.info("After loglikelihood cal")
+
+            # neg_ell_list.append(-loglikelihood)
+            neg_ell_list.append(-loglikelihood + REG_TERM[REG_TYPE](A=Y_i))
     
             if idx_iteration+1 == NUM_ITERATION:
                 self.logger.info(f"Douglas Rachford did not converge after iteration {idx_iteration+1}")
@@ -138,7 +156,8 @@ class GraphEMforA(KalmanProcess):
             #     self.logger.info(f"Douglas Rachford converged after iteration {idx_iteration+1}")
             #     break
 
-        A_n_plus_1 = A_i
+        # A_n_plus_1 = A_i
+        A_n_plus_1 = Y_i # change A to Y
 
         return A_n_plus_1
 
@@ -149,9 +168,16 @@ class GraphEMforA(KalmanProcess):
 
         NUM_ITERATION = kwargs.get("num_iteration", 10)
         LAMBDA = kwargs.get("lambda", 50) # penalty/prior control parameter
-        GAMMA = kwargs.get("gamma", 0.001) # regularization parameter
+        GAMMA = kwargs.get("gamma", 1) # regularization parameter
         EPS = kwargs.get("eps", 1e-5) # stop condition for Main Loop
         XI = kwargs.get("xi", 1e-5) # stop condition for M-Step
+
+        REG_TERM = {
+        "Laplace": F.L1_wrt_A,
+        "Gaussian": F.Gaussian_Prior_wrt_A,
+        "Block Laplace": F.Block_L1_wrt_A,
+        "Laplace+Gaussian": F.L1_plus_Gaussian_Prior_wrt_A,
+        }
 
         self.Y = Y
 
@@ -167,25 +193,34 @@ class GraphEMforA(KalmanProcess):
 
         for i in range(len(A)):
             for j in range(len(A)):
-                A[i, j] = 0.1 ** abs(i - j)
+                A[i, j] = 0.2 ** abs(i - j)
+
+        # A = self.A + np.random.normal(scale=0.01, size=self.A.shape)
 
         U, S, VT = np.linalg.svd(A)
-        max_singular_value = np.max(S)
-        coef = 0.99 / max_singular_value
-        A = coef * A # A(0)
+        S = np.minimum(S, 0.99)
+        A = U @ np.diag(S) @ VT
+
+        # max_singular_value = np.max(S)
+        # coef = 0.99 / max_singular_value
+        # A = coef * A # A(0)
 
         fnorm = np.linalg.norm(A - self.A, 'fro')
 
         temp = self.ParamsDict
         temp["A"] = A
 
+        # self.logger.info("Before loglikelihood cal")
+
         loglikelihood = self.loglikelihood(Y=Y, **temp)
+
+        # self.logger.info("After loglikelihood cal")
 
         T = len(Y)
 
         Results[f"A 0:{NUM_ITERATION}"] = [A]
         Results[f"||A - A_true||F 0:{NUM_ITERATION}"] = [fnorm]
-        Results[f"-ell(A|Y, A_true) 0:{NUM_ITERATION}"] = [-loglikelihood]
+        Results[f"-ell(A|Y, A_true) 0:{NUM_ITERATION}"] = [-loglikelihood + REG_TERM[REG_TYPE](A=A)]
         Results[f"GraphEM Q 0:{NUM_ITERATION}"] = []
 
         for idx in range(NUM_ITERATION):
@@ -240,11 +275,15 @@ class GraphEMforA(KalmanProcess):
             temp = self.ParamsDict
             temp["A"] = A # A(n+1)
 
+            # self.logger.info("Before loglikelihood cal")
+
             loglikelihood = self.loglikelihood(Y=Y, **temp)
+
+            # self.logger.info("After loglikelihood cal")
 
             Results[f"A 0:{NUM_ITERATION}"].append(A)
             Results[f"||A - A_true||F 0:{NUM_ITERATION}"].append(fnorm)
-            Results[f"-ell(A|Y, A_true) 0:{NUM_ITERATION}"].append(-loglikelihood)
+            Results[f"-ell(A|Y, A_true) 0:{NUM_ITERATION}"].append(-loglikelihood + REG_TERM[REG_TYPE](A=A))
 
             obj_qunatities = {
                 "reg_type": REG_TYPE,
@@ -264,19 +303,22 @@ class GraphEMforA(KalmanProcess):
                 self.logger.info(f"GraphEM did not converge after iteration {idx+1}")
 
             # check stop condition
-            if idx and np.abs(
-                Results[f"GraphEM Q 0:{NUM_ITERATION}"][-1] - Results[f"GraphEM Q 0:{NUM_ITERATION}"][-2]
-                ) <= EPS: # Q(A(n+1), A(n))-Q(A(n), A(n))
-                self.logger.info(f"GraphEM converged after iteration {idx+1}")
-                break
-
-            # if idx and (np.linalg.norm(Results[f"A 0:{NUM_ITERATION}"][-1] - Results[f"A 0:{NUM_ITERATION}"][-2], "fro") / np.linalg.norm(Results[f"A 0:{NUM_ITERATION}"][-2], "fro")) <= EPS:
+            # if idx and np.abs(
+            #     Results[f"GraphEM Q 0:{NUM_ITERATION}"][-1] - Results[f"GraphEM Q 0:{NUM_ITERATION}"][-2]
+            #     ) <= EPS: # Q(A(n+1), A(n))-Q(A(n), A(n))
             #     self.logger.info(f"GraphEM converged after iteration {idx+1}")
             #     break
+
+            if idx and np.abs(
+                Results[f"-ell(A|Y, A_true) 0:{NUM_ITERATION}"][-1] - Results[f"-ell(A|Y, A_true) 0:{NUM_ITERATION}"][-2]
+                ) <= EPS:
+                self.logger.info(f"GraphEM converged after iteration {idx+1}")
+                break
 
         Results[f"A"] = Results[f"A 0:{NUM_ITERATION}"]
         Results[f"A Fnorm"] = Results[f"||A - A_true||F 0:{NUM_ITERATION}"]
         Results[f"A NegLoglikelihood"] = Results[f"-ell(A|Y, A_true) 0:{NUM_ITERATION}"]
+        # Results[f"A NegLoglikelihood"] = [L_t - REG_TERM[REG_TYPE](A=A) for L_t in Results[f"A NegLoglikelihood"]]
         Results[f"GraphEM Q Pair"] = Results[f"GraphEM Q 0:{NUM_ITERATION}"] # Q(A(0), A(0))-Q(A(1), A(0)), Q(A(1), A(1))-Q(A(2), A(1)), ...
 
         return Results

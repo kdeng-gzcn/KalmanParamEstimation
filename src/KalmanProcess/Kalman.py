@@ -1,12 +1,14 @@
 # for local import
 # import sys
 # sys.path.append("")
+import logging
 
 import numpy as np
 from pykalman import KalmanFilter as KFpykalman
 from filterpy.kalman import KalmanFilter as KFfilterpy
 
 from src.DataGenerator import LinearGaussianDataGenerator
+from src.logging.logging_config import setup_logging
 
 class KalmanProcess(LinearGaussianDataGenerator):
 
@@ -23,6 +25,8 @@ class KalmanProcess(LinearGaussianDataGenerator):
     """
 
     def __init__(self, **kwargs):
+
+        self.logger = logging.getLogger(__name__)
 
         super().__init__(**kwargs) # use default value
 
@@ -147,11 +151,14 @@ class KalmanProcess(LinearGaussianDataGenerator):
 
         self.Y = Y
 
-        if kwargs:
-            model = KalmanProcess(**kwargs)
-            filter = model.Filter(Y=Y)
-        else:
-            filter = self.Filter(Y=Y)
+        # if kwargs:
+        #     model = KalmanProcess(**kwargs)
+        #     filter = model.Filter(Y=Y)
+        # else:
+        #     filter = self.Filter(Y=Y)
+
+        model = KalmanProcess(**kwargs)
+        filter = model.Filter(Y=Y)
 
         T, p = Y.shape
 
@@ -162,7 +169,7 @@ class KalmanProcess(LinearGaussianDataGenerator):
             vk = filter["v 1:T"][k]
             Sk = filter["S 1:T"][k]
 
-            ell += -(p/2 * np.log(2 * np.pi) + 1/2 * np.log(np.linalg.det(Sk)) + 1/2 * vk.T @ np.linalg.inv(Sk) @ vk)
+            ell += -(1/2 * np.log(2 * np.pi * np.linalg.det(Sk)) + 1/2 * vk.T @ np.linalg.inv(Sk) @ vk)
 
         return ell
     
