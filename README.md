@@ -1,1 +1,1 @@
-# Bayesian_Filtering_and_Smoothing
+# Extended Regularization Strategies for GraphEM under Graphical Inference
