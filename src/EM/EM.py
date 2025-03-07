@@ -124,7 +124,7 @@ if __name__ == "__main__":
     Y = ssm.Y
 
     alg = EMParameterEstimation(**ModelParams)
-    missing_vars = ["A"]
+    missing_vars = ["A", "H", "Q", "R", "m0", "P0"]
     results = alg.parameter_estimation(missing_vars=missing_vars, Y=Y)
 
     for var in missing_vars:
